@@ -7,6 +7,8 @@ mod creation_tests {
     use dapi_grpc::platform::v0::get_contested_resource_vote_state_request::GetContestedResourceVoteStateRequestV0;
     use dapi_grpc::platform::v0::get_contested_resource_vote_state_response::{get_contested_resource_vote_state_response_v0, GetContestedResourceVoteStateResponseV0};
     use assert_matches::assert_matches;
+    use dpp::platform_value::string_encoding::Encoding;
+    use dpp::prelude::Identifier;
     use rand::distributions::Standard;
     use dpp::consensus::basic::document::DocumentFieldMaxSizeExceededError;
     use dpp::consensus::ConsensusError;
@@ -26,20 +28,27 @@ mod creation_tests {
     use drive::query::vote_poll_vote_state_query::ResolvedContestedDocumentVotePollDriveQuery;
     use drive::util::test_helpers::setup_contract;
     use crate::execution::validation::state_transition::state_transitions::tests::{add_contender_to_dpns_name_contest, create_dpns_identity_name_contest, create_dpns_name_contest_give_key_info, perform_votes_multi};
-    use crate::platform_types::platform_state::v0::PlatformStateV0Methods;
+    use crate::platform_types::platform_state::PlatformStateV0Methods;
     use crate::platform_types::state_transitions_processing_result::StateTransitionExecutionResult::PaidConsensusError;
     use crate::test::helpers::fast_forward_to_block::fast_forward_to_block;
     use dpp::consensus::state::state_error::StateError;
     use dpp::dashcore::Network;
     use dpp::dashcore::Network::Testnet;
-    use dpp::data_contract::DataContract;
+    use dpp::data_contract::{DataContract, TokenConfiguration};
+    use dpp::document::transfer::Transferable;
     use dpp::identity::SecurityLevel;
     use dpp::state_transition::batch_transition::document_base_transition::DocumentBaseTransition;
     use dpp::state_transition::batch_transition::document_create_transition::DocumentCreateTransitionV0;
     use dpp::state_transition::batch_transition::{DocumentCreateTransition, BatchTransitionV0};
     use dpp::state_transition::StateTransition;
     use dpp::data_contract::accessors::v1::DataContractV1Getters;
+    use dpp::data_contract::document_type::accessors::DocumentTypeV1Getters;
+    use dpp::tokens::gas_fees_paid_by::GasFeesPaidBy;
+    use dpp::tokens::token_amount_on_contract_token::DocumentActionTokenCost;
+    use dpp::tokens::token_payment_info::TokenPaymentInfo;
+    use dpp::tokens::token_payment_info::v0::TokenPaymentInfoV0;
     use crate::config::PlatformConfig;
+    use crate::execution::validation::state_transition::tests::{create_card_game_external_token_contract_with_owner_identity, create_card_game_internal_token_contract_with_owner_identity_transfer_tokens, create_token_contract_with_owner_identity};
 
     #[test]
     fn test_document_creation() {
@@ -87,10 +96,9 @@ mod creation_tests {
                 &key,
                 2,
                 0,
+                None,
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -116,7 +124,7 @@ mod creation_tests {
 
         assert_matches!(
             processing_result.execution_results().as_slice(),
-            [StateTransitionExecutionResult::SuccessfulExecution(_, _)]
+            [StateTransitionExecutionResult::SuccessfulExecution { .. }]
         );
 
         platform
@@ -125,6 +133,104 @@ mod creation_tests {
             .commit_transaction(transaction)
             .unwrap()
             .expect("expected to commit transaction");
+    }
+
+    #[test]
+    fn test_document_creation_should_fail_when_creator_id_is_provided() {
+        let platform_version = PlatformVersion::latest();
+        let (mut platform, contract) = TestPlatformBuilder::new()
+            .build_with_mock_rpc()
+            .set_initial_state_structure()
+            .with_crypto_card_game_transfer_only(Transferable::Always);
+
+        let mut rng = StdRng::seed_from_u64(433);
+
+        let platform_state = platform.state.load();
+
+        let (identity, signer, key) = setup_identity(&mut platform, 958, dash_to_credits!(0.1));
+
+        let card_document_type = contract
+            .document_type_for_name("card")
+            .expect("expected a card document type");
+
+        let entropy = Bytes32::random_with_rng(&mut rng);
+
+        let mut document = card_document_type
+            .random_document_with_identifier_and_entropy(
+                &mut rng,
+                identity.id(),
+                entropy,
+                DocumentFieldFillType::FillIfNotRequired,
+                DocumentFieldFillSize::AnyDocumentFillSize,
+                platform_version,
+            )
+            .expect("expected a random document");
+
+        document.set("attack", 4.into());
+        document.set("defense", 7.into());
+        document.set("imageUrl", "https://example.com/card.png".into());
+
+        let forged_creator_bytes = Bytes32::random_with_rng(&mut rng);
+        let forged_creator = Identifier::from(forged_creator_bytes.0);
+        document.set("$creatorId", forged_creator.into());
+
+        let documents_batch_create_transition =
+            BatchTransition::new_document_creation_transition_from_document(
+                document,
+                card_document_type,
+                entropy.0,
+                &key,
+                2,
+                0,
+                None,
+                &signer,
+                platform_version,
+                None,
+            )
+            .expect("expect to create documents batch transition");
+
+        let documents_batch_create_serialized_transition = documents_batch_create_transition
+            .serialize_to_bytes()
+            .expect("expected documents batch serialized state transition");
+
+        let transaction = platform.drive.grove.start_transaction();
+
+        let processing_result = platform
+            .platform
+            .process_raw_state_transitions(
+                &vec![documents_batch_create_serialized_transition],
+                &platform_state,
+                &BlockInfo::default(),
+                &transaction,
+                platform_version,
+                false,
+                None,
+            )
+            .expect("expected to process state transition");
+
+        assert_eq!(processing_result.invalid_paid_count(), 1);
+
+        platform
+            .drive
+            .grove
+            .commit_transaction(transaction)
+            .unwrap()
+            .expect("expected to commit transaction");
+
+        let result = processing_result.into_execution_results().remove(0);
+        let PaidConsensusError {
+            error: consensus_error,
+            ..
+        } = result
+        else {
+            panic!("expected a paid consensus error");
+        };
+
+        assert!(
+            consensus_error.to_string().contains("$creatorId"),
+            "expected the error to mention $creatorId but got: {}",
+            consensus_error
+        );
     }
 
     #[test]
@@ -173,10 +279,9 @@ mod creation_tests {
                 &key,
                 2,
                 0,
+                None,
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -202,7 +307,7 @@ mod creation_tests {
 
         assert_matches!(
             processing_result.execution_results().as_slice(),
-            [StateTransitionExecutionResult::SuccessfulExecution(_, _)]
+            [StateTransitionExecutionResult::SuccessfulExecution { .. }]
         );
 
         platform
@@ -235,10 +340,9 @@ mod creation_tests {
                 &key,
                 3,
                 0,
+                None,
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -264,10 +368,10 @@ mod creation_tests {
 
         assert_matches!(
             processing_result.execution_results().as_slice(),
-            [PaidConsensusError(
-                ConsensusError::StateError(StateError::DocumentAlreadyPresentError { .. }),
-                _
-            )]
+            [PaidConsensusError {
+                error: ConsensusError::StateError(StateError::DocumentAlreadyPresentError { .. }),
+                ..
+            }]
         );
 
         platform
@@ -343,10 +447,9 @@ mod creation_tests {
                 &key,
                 2,
                 0,
+                None,
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -371,21 +474,21 @@ mod creation_tests {
             .expect("expected to process state transition");
         assert_eq!(
             processing_result.execution_results().first().unwrap(),
-            &PaidConsensusError(
-                ConsensusError::BasicError(BasicError::DocumentFieldMaxSizeExceededError(
+            &PaidConsensusError {
+                error: ConsensusError::BasicError(BasicError::DocumentFieldMaxSizeExceededError(
                     DocumentFieldMaxSizeExceededError::new(
                         "avatar".to_string(),
                         avatar_size as u64,
                         max_field_size as u64
                     )
                 )),
-                FeeResult {
+                actual_fees: FeeResult {
                     storage_fee: 11556000,
                     processing_fee: 526140,
                     fee_refunds: FeeRefunds::default(),
                     removed_bytes_from_system: 0
                 }
-            )
+            }
         );
 
         platform
@@ -523,10 +626,9 @@ mod creation_tests {
                 &key_1,
                 2,
                 0,
+                None,
                 &signer_1,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -544,10 +646,9 @@ mod creation_tests {
                 &key_2,
                 2,
                 0,
+                None,
                 &signer_2,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -565,10 +666,9 @@ mod creation_tests {
                 &key_1,
                 3,
                 0,
+                None,
                 &signer_1,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -585,10 +685,9 @@ mod creation_tests {
                 &key_2,
                 3,
                 0,
+                None,
                 &signer_2,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -943,10 +1042,9 @@ mod creation_tests {
                 &key_1,
                 2,
                 0,
+                None,
                 &signer_1,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -961,6 +1059,7 @@ mod creation_tests {
             base: DocumentBaseTransition::from_document(
                 &document_1,
                 domain,
+                None,
                 3,
                 platform_version,
                 None,
@@ -1038,10 +1137,10 @@ mod creation_tests {
 
         assert_matches!(
             processing_result.execution_results().as_slice(),
-            [PaidConsensusError(
-                ConsensusError::StateError(StateError::DocumentContestNotPaidForError(_)),
-                _
-            )]
+            [PaidConsensusError {
+                error: ConsensusError::StateError(StateError::DocumentContestNotPaidForError(_)),
+                ..
+            }]
         );
 
         // Now let's run a query for the vote totals
@@ -1120,7 +1219,7 @@ mod creation_tests {
             .expect("expected to get back documents")
             .documents_owned();
 
-        assert!(documents.first().is_none());
+        assert!(documents.is_empty());
     }
 
     #[test]
@@ -1215,10 +1314,9 @@ mod creation_tests {
                 &key_1,
                 2,
                 0,
+                None,
                 &signer_1,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -1233,6 +1331,7 @@ mod creation_tests {
             base: DocumentBaseTransition::from_document(
                 &document_1,
                 domain,
+                None,
                 3,
                 platform_version,
                 None,
@@ -1309,7 +1408,7 @@ mod creation_tests {
 
         assert_matches!(
             processing_result.execution_results().as_slice(),
-            [StateTransitionExecutionResult::SuccessfulExecution(..)]
+            [StateTransitionExecutionResult::SuccessfulExecution { .. }]
         );
 
         // Now let's run a query for the vote totals
@@ -1388,7 +1487,7 @@ mod creation_tests {
             .expect("expected to get back documents")
             .documents_owned();
 
-        assert!(documents.first().is_some());
+        assert!(!documents.is_empty());
     }
 
     #[test]
@@ -1561,10 +1660,9 @@ mod creation_tests {
                 &key_1,
                 2,
                 0,
+                None,
                 &signer_1,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -1582,10 +1680,9 @@ mod creation_tests {
                 &key_2,
                 2,
                 0,
+                None,
                 &signer_2,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -1603,10 +1700,9 @@ mod creation_tests {
                 &key_1,
                 3,
                 0,
+                None,
                 &signer_1,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -1624,10 +1720,9 @@ mod creation_tests {
                 &key_1,
                 4,
                 0,
+                None,
                 &signer_1,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -1644,10 +1739,9 @@ mod creation_tests {
                 &key_2,
                 3,
                 0,
+                None,
                 &signer_2,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -1664,10 +1758,9 @@ mod creation_tests {
                 &key_1,
                 5,
                 0,
+                None,
                 &signer_1,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -1755,12 +1848,12 @@ mod creation_tests {
 
         assert_matches!(
             processing_result.execution_results().as_slice(),
-            [PaidConsensusError(
-                ConsensusError::StateError(
+            [PaidConsensusError {
+                error: ConsensusError::StateError(
                     StateError::DocumentContestDocumentWithSameIdAlreadyPresentError { .. }
                 ),
-                _
-            )]
+                ..
+            }]
         );
 
         // Now let's run a query for the vote totals
@@ -2102,10 +2195,9 @@ mod creation_tests {
                 &contender_1_key,
                 4,
                 0,
+                None,
                 &contender_1_signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -2143,7 +2235,11 @@ mod creation_tests {
 
         let result = processing_result.into_execution_results().remove(0);
 
-        let PaidConsensusError(consensus_error, _) = result else {
+        let PaidConsensusError {
+            error: consensus_error,
+            ..
+        } = result
+        else {
             panic!("expected a paid consensus error");
         };
         assert_eq!(consensus_error.to_string(), "An Identity with the id BjNejy4r9QAvLHpQ9Yq6yRMgNymeGZ46d48fJxJbMrfW is already a contestant for the vote_poll ContestedDocumentResourceVotePoll { contract_id: GWRSAVFMjXx8HpQFaNJMqBV7MBgMK4br5UESsB4S31Ec, document_type_name: domain, index_name: parentNameAndLabel, index_values: [string dash, string quantum] }");
@@ -2333,10 +2429,9 @@ mod creation_tests {
                 &key,
                 2,
                 0,
+                None,
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -2395,10 +2490,9 @@ mod creation_tests {
                 &another_identity_key,
                 2,
                 0,
+                None,
                 &another_identity_signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -2435,14 +2529,157 @@ mod creation_tests {
 
         let result = processing_result.into_execution_results().remove(0);
 
-        let PaidConsensusError(consensus_error, _) = result else {
+        let PaidConsensusError {
+            error: consensus_error,
+            ..
+        } = result
+        else {
             panic!("expected a paid consensus error");
         };
         assert_eq!(consensus_error.to_string(), "Document Creation on 86LHvdC1Tqx5P97LQUSibGFqf2vnKFpB6VkqQ7oso86e:card is not allowed because of the document type's creation restriction mode Owner Only");
     }
 
     #[test]
-    fn test_document_creation_paid_with_a_token() {
+    fn test_document_creation_on_search_system_contract_fails_due_to_restriction() {
+        // Build test platform
+        let mut platform = TestPlatformBuilder::new()
+            .with_latest_protocol_version()
+            .build_with_mock_rpc()
+            .set_initial_state_structure();
+
+        // Create an identity that will attempt to create the document
+        let (identity, signer, key) = setup_identity(&mut platform, 999, dash_to_credits!(0.1));
+
+        // Obtain the current platform state and version
+        let platform_state = platform.state.load();
+        let platform_version = platform_state
+            .current_platform_version()
+            .expect("expected to get current platform version");
+
+        // Load the system Search contract
+        let search_contract = platform
+            .drive
+            .cache
+            .system_data_contracts
+            .load_keyword_search();
+
+        platform
+            .drive
+            .apply_contract(
+                &search_contract,
+                BlockInfo::default(),
+                true,
+                StorageFlags::optional_default_as_cow(),
+                None,
+                platform_version,
+            )
+            .expect("expected to apply contract successfully");
+
+        // Get the document type from the search contract.
+        let doc_type = search_contract
+            .document_type_for_name("contractKeywords")
+            .expect("expected to find 'contractKeywords' in Search contract");
+
+        // Verify that the document type has the restrictive creation mode
+        assert_eq!(
+            doc_type.creation_restriction_mode(),
+            CreationRestrictionMode::NoCreationAllowed,
+            "Expected creation restriction mode to be NoCreationAllowed (2)."
+        );
+
+        // Create a random document
+        let mut rng = StdRng::seed_from_u64(123456);
+        let entropy = Bytes32::random_with_rng(&mut rng);
+
+        let mut document = doc_type
+            .random_document_with_identifier_and_entropy(
+                &mut rng,
+                identity.id(),
+                entropy,
+                DocumentFieldFillType::DoNotFillIfNotRequired,
+                DocumentFieldFillSize::AnyDocumentFillSize,
+                platform_version,
+            )
+            .expect("expected to create a random document");
+
+        // Set fields in the document
+        document.set("keyword", "meme".into());
+        document.set("contractId", Identifier::random().into());
+
+        // Create the transition
+        let documents_batch_create_transition =
+            BatchTransition::new_document_creation_transition_from_document(
+                document.clone(),
+                doc_type,
+                entropy.0,
+                &key,
+                1,
+                0,
+                None,
+                &signer,
+                platform_version,
+                None,
+            )
+            .expect("expect to create documents batch transition");
+
+        let documents_batch_create_serialized_transition = documents_batch_create_transition
+            .serialize_to_bytes()
+            .expect("expected documents batch serialized state transition");
+
+        // Start transaction and submit the transition
+        let transaction = platform.drive.grove.start_transaction();
+
+        let processing_result = platform
+            .platform
+            .process_raw_state_transitions(
+                &vec![documents_batch_create_serialized_transition],
+                &platform_state,
+                &BlockInfo::default(),
+                &transaction,
+                platform_version,
+                false,
+                None,
+            )
+            .expect("expected to process state transition");
+
+        // Since the creationRestrictionMode is 2 (NoCreationAllowed), this should fail
+        assert_eq!(
+            processing_result.invalid_paid_count(),
+            1,
+            "Expected exactly 1 invalid paid transition"
+        );
+
+        platform
+            .drive
+            .grove
+            .commit_transaction(transaction)
+            .unwrap()
+            .expect("expected to commit transaction");
+
+        // Check the returned consensus error
+        let result = processing_result.into_execution_results().remove(0);
+        let PaidConsensusError {
+            error: consensus_error,
+            ..
+        } = result
+        else {
+            panic!("expected a paid consensus error");
+        };
+
+        // Compare message to whatever your code sets for this error
+        assert_eq!(
+            consensus_error.to_string(),
+            format!(
+                "Document Creation on {}:{} is not allowed because of the document type's creation restriction mode No Creation Allowed",
+                search_contract.id().to_string(Encoding::Base58),
+                "contractKeywords"
+            ),
+            "Mismatch in error message"
+        );
+    }
+
+    #[test]
+    fn test_document_creation_paid_with_a_token_burn() {
         let platform_version = PlatformVersion::latest();
         let mut platform = TestPlatformBuilder::new()
             .with_latest_protocol_version()
@@ -2457,11 +2694,431 @@ mod creation_tests {
 
         let (buyer, signer, key) = setup_identity(&mut platform, 234, dash_to_credits!(0.1));
 
-        let (contract, gold_token_id, _) = create_card_game_token_contract_with_owner_identity(
-            &mut platform,
-            contract_owner_id.id(),
-            platform_version,
+        let (contract, gold_token_id, _) =
+            create_card_game_internal_token_contract_with_owner_identity_burn_tokens(
+                &mut platform,
+                contract_owner_id.id(),
+                platform_version,
+            );
+
+        let token_supply = platform
+            .drive
+            .fetch_token_total_supply(gold_token_id.to_buffer(), None, platform_version)
+            .expect("expected to fetch total supply");
+
+        assert_eq!(token_supply, Some(0));
+
+        assert_eq!(contract.tokens().len(), 2);
+
+        add_tokens_to_identity(&mut platform, gold_token_id, buyer.id(), 15);
+
+        let token_supply = platform
+            .drive
+            .fetch_token_total_supply(gold_token_id.to_buffer(), None, platform_version)
+            .expect("expected to fetch total supply");
+
+        assert_eq!(token_supply, Some(15));
+
+        let card_document_type = contract
+            .document_type_for_name("card")
+            .expect("expected a profile document type");
+
+        let entropy = Bytes32::random_with_rng(&mut rng);
+
+        let mut document = card_document_type
+            .random_document_with_identifier_and_entropy(
+                &mut rng,
+                buyer.id(),
+                entropy,
+                DocumentFieldFillType::DoNotFillIfNotRequired,
+                DocumentFieldFillSize::AnyDocumentFillSize,
+                platform_version,
+            )
+            .expect("expected a random document");
+
+        document.set("attack", 4.into());
+        document.set("defense", 7.into());
+
+        let documents_batch_create_transition =
+            BatchTransition::new_document_creation_transition_from_document(
+                document.clone(),
+                card_document_type,
+                entropy.0,
+                &key,
+                2,
+                0,
+                Some(TokenPaymentInfo::V0(TokenPaymentInfoV0 {
+                    payment_token_contract_id: None,
+                    token_contract_position: 0,
+                    minimum_token_cost: None,
+                    maximum_token_cost: Some(10),
+                    gas_fees_paid_by: GasFeesPaidBy::DocumentOwner,
+                })),
+                &signer,
+                platform_version,
+                None,
+            )
+            .expect("expect to create documents batch transition");
+
+        let documents_batch_create_serialized_transition = documents_batch_create_transition
+            .serialize_to_bytes()
+            .expect("expected documents batch serialized state transition");
+
+        let transaction = platform.drive.grove.start_transaction();
+
+        let processing_result = platform
+            .platform
+            .process_raw_state_transitions(
+                &vec![documents_batch_create_serialized_transition.clone()],
+                &platform_state,
+                &BlockInfo::default(),
+                &transaction,
+                platform_version,
+                false,
+                None,
+            )
+            .expect("expected to process state transition");
+
+        assert_matches!(
+            processing_result.execution_results().as_slice(),
+            [StateTransitionExecutionResult::SuccessfulExecution { .. }]
         );
+
+        platform
+            .validate_token_aggregated_balance(&transaction, platform_version)
+            .expect("expected to validate token aggregated balances");
+
+        platform
+            .drive
+            .grove
+            .commit_transaction(transaction)
+            .unwrap()
+            .expect("expected to commit transaction");
+
+        let token_balance = platform
+            .drive
+            .fetch_identity_token_balance(
+                gold_token_id.to_buffer(),
+                buyer.id().to_buffer(),
+                None,
+                platform_version,
+            )
+            .expect("expected to fetch token balance");
+
+        // He had 15, but spent 10
+        assert_eq!(token_balance, Some(5));
+
+        // There was a burn so the contract owner shouldn't have gotten more tokens
+        let contract_owner_token_balance = platform
+            .drive
+            .fetch_identity_token_balance(
+                gold_token_id.to_buffer(),
+                contract_owner_id.id().to_buffer(),
+                None,
+                platform_version,
+            )
+            .expect("expected to fetch token balance");
+
+        // He started with None, so should have None
+        assert_eq!(contract_owner_token_balance, None);
+    }
+
+    #[test]
+    fn test_document_creation_paid_with_a_token_transfer() {
+        let platform_version = PlatformVersion::latest();
+        let mut platform = TestPlatformBuilder::new()
+            .with_latest_protocol_version()
+            .build_with_mock_rpc()
+            .set_genesis_state();
+
+        let mut rng = StdRng::seed_from_u64(433);
+
+        let platform_state = platform.state.load();
+
+        let (contract_owner_id, _, _) = setup_identity(&mut platform, 958, dash_to_credits!(0.1));
+
+        let (buyer, signer, key) = setup_identity(&mut platform, 234, dash_to_credits!(0.1));
+
+        let (contract, gold_token_id, _) =
+            create_card_game_internal_token_contract_with_owner_identity_transfer_tokens(
+                &mut platform,
+                contract_owner_id.id(),
+                platform_version,
+            );
+
+        let token_supply = platform
+            .drive
+            .fetch_token_total_supply(gold_token_id.to_buffer(), None, platform_version)
+            .expect("expected to fetch total supply");
+
+        assert_eq!(token_supply, Some(0));
+
+        assert_eq!(contract.tokens().len(), 2);
+
+        add_tokens_to_identity(&mut platform, gold_token_id, buyer.id(), 15);
+
+        let token_supply = platform
+            .drive
+            .fetch_token_total_supply(gold_token_id.to_buffer(), None, platform_version)
+            .expect("expected to fetch total supply");
+
+        assert_eq!(token_supply, Some(15));
+
+        let card_document_type = contract
+            .document_type_for_name("card")
+            .expect("expected a profile document type");
+
+        let entropy = Bytes32::random_with_rng(&mut rng);
+
+        let mut document = card_document_type
+            .random_document_with_identifier_and_entropy(
+                &mut rng,
+                buyer.id(),
+                entropy,
+                DocumentFieldFillType::DoNotFillIfNotRequired,
+                DocumentFieldFillSize::AnyDocumentFillSize,
+                platform_version,
+            )
+            .expect("expected a random document");
+
+        document.set("attack", 4.into());
+        document.set("defense", 7.into());
+
+        let documents_batch_create_transition =
+            BatchTransition::new_document_creation_transition_from_document(
+                document.clone(),
+                card_document_type,
+                entropy.0,
+                &key,
+                2,
+                0,
+                Some(TokenPaymentInfo::V0(TokenPaymentInfoV0 {
+                    payment_token_contract_id: None,
+                    token_contract_position: 0,
+                    minimum_token_cost: None,
+                    maximum_token_cost: Some(10),
+                    gas_fees_paid_by: GasFeesPaidBy::DocumentOwner,
+                })),
+                &signer,
+                platform_version,
+                None,
+            )
+            .expect("expect to create documents batch transition");
+
+        let documents_batch_create_serialized_transition = documents_batch_create_transition
+            .serialize_to_bytes()
+            .expect("expected documents batch serialized state transition");
+
+        let transaction = platform.drive.grove.start_transaction();
+
+        let processing_result = platform
+            .platform
+            .process_raw_state_transitions(
+                &vec![documents_batch_create_serialized_transition.clone()],
+                &platform_state,
+                &BlockInfo::default(),
+                &transaction,
+                platform_version,
+                false,
+                None,
+            )
+            .expect("expected to process state transition");
+
+        assert_matches!(
+            processing_result.execution_results().as_slice(),
+            [StateTransitionExecutionResult::SuccessfulExecution { .. }]
+        );
+
+        platform
+            .validate_token_aggregated_balance(&transaction, platform_version)
+            .expect("expected to validate token aggregated balances");
+
+        platform
+            .drive
+            .grove
+            .commit_transaction(transaction)
+            .unwrap()
+            .expect("expected to commit transaction");
+
+        let token_balance = platform
+            .drive
+            .fetch_identity_token_balance(
+                gold_token_id.to_buffer(),
+                buyer.id().to_buffer(),
+                None,
+                platform_version,
+            )
+            .expect("expected to fetch token balance");
+
+        // The buyer had 15, but spent 10
+        assert_eq!(token_balance, Some(5));
+
+        let contract_owner_token_balance = platform
+            .drive
+            .fetch_identity_token_balance(
+                gold_token_id.to_buffer(),
+                contract_owner_id.id().to_buffer(),
+                None,
+                platform_version,
+            )
+            .expect("expected to fetch token balance");
+
+        // He was paid 10
+        assert_eq!(contract_owner_token_balance, Some(10));
+    }
+
+    #[test]
+    fn test_document_creation_paid_with_a_token_transfer_to_ones_self() {
+        let platform_version = PlatformVersion::latest();
+        let mut platform = TestPlatformBuilder::new()
+            .with_latest_protocol_version()
+            .build_with_mock_rpc()
+            .set_genesis_state();
+
+        let mut rng = StdRng::seed_from_u64(433);
+
+        let platform_state = platform.state.load();
+
+        let (contract_owner_id, signer, key) =
+            setup_identity(&mut platform, 958, dash_to_credits!(0.1));
+
+        let (contract, gold_token_id, _) =
+            create_card_game_internal_token_contract_with_owner_identity_transfer_tokens(
+                &mut platform,
+                contract_owner_id.id(),
+                platform_version,
+            );
+
+        let token_supply = platform
+            .drive
+            .fetch_token_total_supply(gold_token_id.to_buffer(), None, platform_version)
+            .expect("expected to fetch total supply");
+
+        assert_eq!(token_supply, Some(0));
+
+        assert_eq!(contract.tokens().len(), 2);
+
+        add_tokens_to_identity(&mut platform, gold_token_id, contract_owner_id.id(), 15);
+
+        let token_supply = platform
+            .drive
+            .fetch_token_total_supply(gold_token_id.to_buffer(), None, platform_version)
+            .expect("expected to fetch total supply");
+
+        assert_eq!(token_supply, Some(15));
+
+        let card_document_type = contract
+            .document_type_for_name("card")
+            .expect("expected a profile document type");
+
+        let entropy = Bytes32::random_with_rng(&mut rng);
+
+        let mut document = card_document_type
+            .random_document_with_identifier_and_entropy(
+                &mut rng,
+                contract_owner_id.id(),
+                entropy,
+                DocumentFieldFillType::DoNotFillIfNotRequired,
+                DocumentFieldFillSize::AnyDocumentFillSize,
+                platform_version,
+            )
+            .expect("expected a random document");
+
+        document.set("attack", 4.into());
+        document.set("defense", 7.into());
+
+        let documents_batch_create_transition =
+            BatchTransition::new_document_creation_transition_from_document(
+                document.clone(),
+                card_document_type,
+                entropy.0,
+                &key,
+                2,
+                0,
+                Some(TokenPaymentInfo::V0(TokenPaymentInfoV0 {
+                    payment_token_contract_id: None,
+                    token_contract_position: 0,
+                    minimum_token_cost: None,
+                    maximum_token_cost: Some(10),
+                    gas_fees_paid_by: GasFeesPaidBy::DocumentOwner,
+                })),
+                &signer,
+                platform_version,
+                None,
+            )
+            .expect("expect to create documents batch transition");
+
+        let documents_batch_create_serialized_transition = documents_batch_create_transition
+            .serialize_to_bytes()
+            .expect("expected documents batch serialized state transition");
+
+        let transaction = platform.drive.grove.start_transaction();
+
+        let processing_result = platform
+            .platform
+            .process_raw_state_transitions(
+                &vec![documents_batch_create_serialized_transition.clone()],
+                &platform_state,
+                &BlockInfo::default(),
+                &transaction,
+                platform_version,
+                false,
+                None,
+            )
+            .expect("expected to process state transition");
+
+        assert_matches!(
+            processing_result.execution_results().as_slice(),
+            [StateTransitionExecutionResult::SuccessfulExecution { .. }]
+        );
+
+        platform
+            .validate_token_aggregated_balance(&transaction, platform_version)
+            .expect("expected to validate token aggregated balances");
+
+        platform
+            .drive
+            .grove
+            .commit_transaction(transaction)
+            .unwrap()
+            .expect("expected to commit transaction");
+
+        let token_balance = platform
+            .drive
+            .fetch_identity_token_balance(
+                gold_token_id.to_buffer(),
+                contract_owner_id.id().to_buffer(),
+                None,
+                platform_version,
+            )
+            .expect("expected to fetch token balance");
+
+        // He still has 15
+        assert_eq!(token_balance, Some(15));
+    }
+
+    #[test]
+    fn test_document_creation_paid_with_a_token_not_spending_enough() {
+        let platform_version = PlatformVersion::latest();
+        let mut platform = TestPlatformBuilder::new()
+            .with_latest_protocol_version()
+            .build_with_mock_rpc()
+            .set_genesis_state();
+
+        let mut rng = StdRng::seed_from_u64(433);
+
+        let platform_state = platform.state.load();
+
+        let (contract_owner_id, _, _) = setup_identity(&mut platform, 958, dash_to_credits!(0.1));
+
+        let (buyer, signer, key) = setup_identity(&mut platform, 234, dash_to_credits!(0.1));
+
+        let (contract, gold_token_id, _) =
+            create_card_game_internal_token_contract_with_owner_identity_burn_tokens(
+                &mut platform,
+                contract_owner_id.id(),
+                platform_version,
+            );
 
         let token_supply = platform
             .drive
@@ -2509,10 +3166,15 @@ mod creation_tests {
                 &key,
                 2,
                 0,
+                Some(TokenPaymentInfo::V0(TokenPaymentInfoV0 {
+                    payment_token_contract_id: None,
+                    token_contract_position: 0,
+                    minimum_token_cost: None,
+                    maximum_token_cost: Some(9),
+                    gas_fees_paid_by: GasFeesPaidBy::DocumentOwner,
+                })),
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -2538,7 +3200,12 @@ mod creation_tests {
 
         assert_matches!(
             processing_result.execution_results().as_slice(),
-            [StateTransitionExecutionResult::SuccessfulExecution(_, _)]
+            [PaidConsensusError {
+                error: ConsensusError::StateError(
+                    StateError::IdentityHasNotAgreedToPayRequiredTokenAmountError(_)
+                ),
+                ..
+            }]
         );
 
         platform
@@ -2558,8 +3225,393 @@ mod creation_tests {
             )
             .expect("expected to fetch token balance");
 
-        // He had 15, but spent 10
+        // He should still have 15
+        assert_eq!(token_balance, Some(15));
+    }
+
+    #[test]
+    fn test_document_creation_paid_with_a_token_minimum_cost_set_rare_scenario() {
+        let platform_version = PlatformVersion::latest();
+        let mut platform = TestPlatformBuilder::new()
+            .with_latest_protocol_version()
+            .build_with_mock_rpc()
+            .set_genesis_state();
+
+        let mut rng = StdRng::seed_from_u64(433);
+
+        let platform_state = platform.state.load();
+
+        let (contract_owner_id, _, _) = setup_identity(&mut platform, 958, dash_to_credits!(0.1));
+
+        let (buyer, signer, key) = setup_identity(&mut platform, 234, dash_to_credits!(0.1));
+
+        let (contract, gold_token_id, _) =
+            create_card_game_internal_token_contract_with_owner_identity_burn_tokens(
+                &mut platform,
+                contract_owner_id.id(),
+                platform_version,
+            );
+
+        let token_supply = platform
+            .drive
+            .fetch_token_total_supply(gold_token_id.to_buffer(), None, platform_version)
+            .expect("expected to fetch total supply");
+
+        assert_eq!(token_supply, Some(0));
+
+        assert_eq!(contract.tokens().len(), 2);
+
+        add_tokens_to_identity(&mut platform, gold_token_id.into(), buyer.id(), 15);
+
+        let token_supply = platform
+            .drive
+            .fetch_token_total_supply(gold_token_id.to_buffer(), None, platform_version)
+            .expect("expected to fetch total supply");
+
+        assert_eq!(token_supply, Some(15));
+
+        let card_document_type = contract
+            .document_type_for_name("card")
+            .expect("expected a profile document type");
+
+        let entropy = Bytes32::random_with_rng(&mut rng);
+
+        let mut document = card_document_type
+            .random_document_with_identifier_and_entropy(
+                &mut rng,
+                buyer.id(),
+                entropy,
+                DocumentFieldFillType::DoNotFillIfNotRequired,
+                DocumentFieldFillSize::AnyDocumentFillSize,
+                platform_version,
+            )
+            .expect("expected a random document");
+
+        document.set("attack", 4.into());
+        document.set("defense", 7.into());
+
+        let documents_batch_create_transition =
+            BatchTransition::new_document_creation_transition_from_document(
+                document.clone(),
+                card_document_type,
+                entropy.0,
+                &key,
+                2,
+                0,
+                Some(TokenPaymentInfo::V0(TokenPaymentInfoV0 {
+                    payment_token_contract_id: None,
+                    token_contract_position: 0,
+                    minimum_token_cost: Some(12),
+                    maximum_token_cost: None,
+                    gas_fees_paid_by: GasFeesPaidBy::DocumentOwner,
+                })),
+                &signer,
+                platform_version,
+                None,
+            )
+            .expect("expect to create documents batch transition");
+
+        let documents_batch_create_serialized_transition = documents_batch_create_transition
+            .serialize_to_bytes()
+            .expect("expected documents batch serialized state transition");
+
+        let transaction = platform.drive.grove.start_transaction();
+
+        let processing_result = platform
+            .platform
+            .process_raw_state_transitions(
+                &vec![documents_batch_create_serialized_transition.clone()],
+                &platform_state,
+                &BlockInfo::default(),
+                &transaction,
+                platform_version,
+                false,
+                None,
+            )
+            .expect("expected to process state transition");
+
+        assert_matches!(
+            processing_result.execution_results().as_slice(),
+            [PaidConsensusError {
+                error: ConsensusError::StateError(
+                    StateError::IdentityHasNotAgreedToPayRequiredTokenAmountError(_)
+                ),
+                ..
+            }]
+        );
+
+        platform
+            .drive
+            .grove
+            .commit_transaction(transaction)
+            .unwrap()
+            .expect("expected to commit transaction");
+
+        let token_balance = platform
+            .drive
+            .fetch_identity_token_balance(
+                gold_token_id.to_buffer(),
+                buyer.id().to_buffer(),
+                None,
+                platform_version,
+            )
+            .expect("expected to fetch token balance");
+
+        // He should still have 15
+        assert_eq!(token_balance, Some(15));
+    }
+
+    #[test]
+    fn test_document_creation_paid_with_a_token_agreeing_to_too_much() {
+        let platform_version = PlatformVersion::latest();
+        let mut platform = TestPlatformBuilder::new()
+            .with_latest_protocol_version()
+            .build_with_mock_rpc()
+            .set_genesis_state();
+
+        let mut rng = StdRng::seed_from_u64(433);
+
+        let platform_state = platform.state.load();
+
+        let (contract_owner_id, _, _) = setup_identity(&mut platform, 958, dash_to_credits!(0.1));
+
+        let (buyer, signer, key) = setup_identity(&mut platform, 234, dash_to_credits!(0.1));
+
+        let (contract, gold_token_id, _) =
+            create_card_game_internal_token_contract_with_owner_identity_burn_tokens(
+                &mut platform,
+                contract_owner_id.id(),
+                platform_version,
+            );
+
+        let token_supply = platform
+            .drive
+            .fetch_token_total_supply(gold_token_id.to_buffer(), None, platform_version)
+            .expect("expected to fetch total supply");
+
+        assert_eq!(token_supply, Some(0));
+
+        assert_eq!(contract.tokens().len(), 2);
+
+        add_tokens_to_identity(&mut platform, gold_token_id.into(), buyer.id(), 15);
+
+        let token_supply = platform
+            .drive
+            .fetch_token_total_supply(gold_token_id.to_buffer(), None, platform_version)
+            .expect("expected to fetch total supply");
+
+        assert_eq!(token_supply, Some(15));
+
+        let card_document_type = contract
+            .document_type_for_name("card")
+            .expect("expected a profile document type");
+
+        let entropy = Bytes32::random_with_rng(&mut rng);
+
+        let mut document = card_document_type
+            .random_document_with_identifier_and_entropy(
+                &mut rng,
+                buyer.id(),
+                entropy,
+                DocumentFieldFillType::DoNotFillIfNotRequired,
+                DocumentFieldFillSize::AnyDocumentFillSize,
+                platform_version,
+            )
+            .expect("expected a random document");
+
+        document.set("attack", 4.into());
+        document.set("defense", 7.into());
+
+        let documents_batch_create_transition =
+            BatchTransition::new_document_creation_transition_from_document(
+                document.clone(),
+                card_document_type,
+                entropy.0,
+                &key,
+                2,
+                0,
+                Some(TokenPaymentInfo::V0(TokenPaymentInfoV0 {
+                    payment_token_contract_id: None,
+                    token_contract_position: 0,
+                    minimum_token_cost: None,
+                    maximum_token_cost: Some(12),
+                    gas_fees_paid_by: GasFeesPaidBy::DocumentOwner,
+                })),
+                &signer,
+                platform_version,
+                None,
+            )
+            .expect("expect to create documents batch transition");
+
+        let documents_batch_create_serialized_transition = documents_batch_create_transition
+            .serialize_to_bytes()
+            .expect("expected documents batch serialized state transition");
+
+        let transaction = platform.drive.grove.start_transaction();
+
+        let processing_result = platform
+            .platform
+            .process_raw_state_transitions(
+                &vec![documents_batch_create_serialized_transition.clone()],
+                &platform_state,
+                &BlockInfo::default(),
+                &transaction,
+                platform_version,
+                false,
+                None,
+            )
+            .expect("expected to process state transition");
+
+        assert_matches!(
+            processing_result.execution_results().as_slice(),
+            [StateTransitionExecutionResult::SuccessfulExecution { .. }]
+        );
+
+        platform
+            .drive
+            .grove
+            .commit_transaction(transaction)
+            .unwrap()
+            .expect("expected to commit transaction");
+
+        let token_balance = platform
+            .drive
+            .fetch_identity_token_balance(
+                gold_token_id.to_buffer(),
+                buyer.id().to_buffer(),
+                None,
+                platform_version,
+            )
+            .expect("expected to fetch token balance");
+
+        // He had 15, but only spent 10
         assert_eq!(token_balance, Some(5));
+    }
+
+    #[test]
+    fn test_document_creation_paid_with_a_token_token_info_not_set() {
+        let platform_version = PlatformVersion::latest();
+        let mut platform = TestPlatformBuilder::new()
+            .with_latest_protocol_version()
+            .build_with_mock_rpc()
+            .set_genesis_state();
+
+        let mut rng = StdRng::seed_from_u64(433);
+
+        let platform_state = platform.state.load();
+
+        let (contract_owner_id, _, _) = setup_identity(&mut platform, 958, dash_to_credits!(0.1));
+
+        let (buyer, signer, key) = setup_identity(&mut platform, 234, dash_to_credits!(0.1));
+
+        let (contract, gold_token_id, _) =
+            create_card_game_internal_token_contract_with_owner_identity_burn_tokens(
+                &mut platform,
+                contract_owner_id.id(),
+                platform_version,
+            );
+
+        let token_supply = platform
+            .drive
+            .fetch_token_total_supply(gold_token_id.to_buffer(), None, platform_version)
+            .expect("expected to fetch total supply");
+
+        assert_eq!(token_supply, Some(0));
+
+        assert_eq!(contract.tokens().len(), 2);
+
+        add_tokens_to_identity(&mut platform, gold_token_id.into(), buyer.id(), 15);
+
+        let token_supply = platform
+            .drive
+            .fetch_token_total_supply(gold_token_id.to_buffer(), None, platform_version)
+            .expect("expected to fetch total supply");
+
+        assert_eq!(token_supply, Some(15));
+
+        let card_document_type = contract
+            .document_type_for_name("card")
+            .expect("expected a profile document type");
+
+        let entropy = Bytes32::random_with_rng(&mut rng);
+
+        let mut document = card_document_type
+            .random_document_with_identifier_and_entropy(
+                &mut rng,
+                buyer.id(),
+                entropy,
+                DocumentFieldFillType::DoNotFillIfNotRequired,
+                DocumentFieldFillSize::AnyDocumentFillSize,
+                platform_version,
+            )
+            .expect("expected a random document");
+
+        document.set("attack", 4.into());
+        document.set("defense", 7.into());
+
+        let documents_batch_create_transition =
+            BatchTransition::new_document_creation_transition_from_document(
+                document.clone(),
+                card_document_type,
+                entropy.0,
+                &key,
+                2,
+                0,
+                None,
+                &signer,
+                platform_version,
+                None,
+            )
+            .expect("expect to create documents batch transition");
+
+        let documents_batch_create_serialized_transition = documents_batch_create_transition
+            .serialize_to_bytes()
+            .expect("expected documents batch serialized state transition");
+
+        let transaction = platform.drive.grove.start_transaction();
+
+        let processing_result = platform
+            .platform
+            .process_raw_state_transitions(
+                &vec![documents_batch_create_serialized_transition.clone()],
+                &platform_state,
+                &BlockInfo::default(),
+                &transaction,
+                platform_version,
+                false,
+                None,
+            )
+            .expect("expected to process state transition");
+
+        assert_matches!(
+            processing_result.execution_results().as_slice(),
+            [PaidConsensusError {
+                error: ConsensusError::StateError(StateError::RequiredTokenPaymentInfoNotSetError(
+                    _
+                )),
+                ..
+            }]
+        );
+
+        platform
+            .drive
+            .grove
+            .commit_transaction(transaction)
+            .unwrap()
+            .expect("expected to commit transaction");
+
+        let token_balance = platform
+            .drive
+            .fetch_identity_token_balance(
+                gold_token_id.to_buffer(),
+                buyer.id().to_buffer(),
+                None,
+                platform_version,
+            )
+            .expect("expected to fetch token balance");
+
+        // Nothing should have happened
+        assert_eq!(token_balance, Some(15));
     }
 
     #[test]
@@ -2578,11 +3630,12 @@ mod creation_tests {
 
         let (buyer, signer, key) = setup_identity(&mut platform, 234, dash_to_credits!(0.1));
 
-        let (contract, gold_token_id, _) = create_card_game_token_contract_with_owner_identity(
-            &mut platform,
-            contract_owner_id.id(),
-            platform_version,
-        );
+        let (contract, gold_token_id, _) =
+            create_card_game_internal_token_contract_with_owner_identity_burn_tokens(
+                &mut platform,
+                contract_owner_id.id(),
+                platform_version,
+            );
 
         let token_supply = platform
             .drive
@@ -2594,7 +3647,7 @@ mod creation_tests {
         assert_eq!(contract.tokens().len(), 2);
 
         // We need 10 tokens, we have 8.
-        add_tokens_to_identity(&mut platform, gold_token_id.into(), buyer.id(), 8);
+        add_tokens_to_identity(&mut platform, gold_token_id, buyer.id(), 8);
 
         let token_supply = platform
             .drive
@@ -2631,10 +3684,15 @@ mod creation_tests {
                 &key,
                 2,
                 0,
+                Some(TokenPaymentInfo::V0(TokenPaymentInfoV0 {
+                    payment_token_contract_id: None, // This contract
+                    token_contract_position: 0,
+                    minimum_token_cost: None,
+                    maximum_token_cost: None, // We'll pay whatever
+                    gas_fees_paid_by: GasFeesPaidBy::DocumentOwner,
+                })),
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -2660,12 +3718,12 @@ mod creation_tests {
 
         assert_matches!(
             processing_result.execution_results().as_slice(),
-            [PaidConsensusError(
-                ConsensusError::StateError(StateError::IdentityDoesNotHaveEnoughTokenBalanceError(
-                    _
-                )),
-                _
-            )]
+            [PaidConsensusError {
+                error: ConsensusError::StateError(
+                    StateError::IdentityDoesNotHaveEnoughTokenBalanceError(_)
+                ),
+                ..
+            }]
         );
 
         platform
@@ -2687,5 +3745,185 @@ mod creation_tests {
 
         // We should still have 8
         assert_eq!(token_balance, Some(8));
+    }
+
+    #[test]
+    fn test_document_creation_paid_with_an_external_token() {
+        let platform_version = PlatformVersion::latest();
+        let mut platform = TestPlatformBuilder::new()
+            .with_latest_protocol_version()
+            .build_with_mock_rpc()
+            .set_genesis_state();
+
+        let mut rng = StdRng::seed_from_u64(433);
+
+        let platform_state = platform.state.load();
+
+        let (document_contract_owner_id, _, _) =
+            setup_identity(&mut platform, 958, dash_to_credits!(0.1));
+
+        let (token_contract_owner_id, _, _) =
+            setup_identity(&mut platform, 11, dash_to_credits!(0.1));
+
+        let (buyer, signer, key) = setup_identity(&mut platform, 234, dash_to_credits!(0.1));
+
+        let (token_contract, token_id) = create_token_contract_with_owner_identity(
+            &mut platform,
+            token_contract_owner_id.id(),
+            None::<fn(&mut TokenConfiguration)>,
+            None,
+            None,
+            None,
+            platform_version,
+        );
+
+        let document_contract = create_card_game_external_token_contract_with_owner_identity(
+            &mut platform,
+            token_contract.id(),
+            0,
+            5,
+            GasFeesPaidBy::DocumentOwner,
+            document_contract_owner_id.id(),
+            platform_version,
+        );
+
+        let token_supply = platform
+            .drive
+            .fetch_token_total_supply(token_id.to_buffer(), None, platform_version)
+            .expect("expected to fetch total supply");
+
+        assert_eq!(token_supply, Some(100000));
+
+        assert_eq!(token_contract.tokens().len(), 1);
+
+        add_tokens_to_identity(&mut platform, token_id.into(), buyer.id(), 15);
+
+        let token_supply = platform
+            .drive
+            .fetch_token_total_supply(token_id.to_buffer(), None, platform_version)
+            .expect("expected to fetch total supply");
+
+        assert_eq!(token_supply, Some(100015));
+
+        let card_document_type = document_contract
+            .document_type_for_name("card")
+            .expect("expected a profile document type");
+
+        assert_eq!(
+            card_document_type.document_creation_token_cost(),
+            Some(DocumentActionTokenCost {
+                contract_id: Some(token_contract.id()),
+                token_contract_position: 0,
+                token_amount: 5,
+                effect: Default::default(),
+                gas_fees_paid_by: GasFeesPaidBy::DocumentOwner,
+            })
+        );
+
+        let entropy = Bytes32::random_with_rng(&mut rng);
+
+        let mut document = card_document_type
+            .random_document_with_identifier_and_entropy(
+                &mut rng,
+                buyer.id(),
+                entropy,
+                DocumentFieldFillType::DoNotFillIfNotRequired,
+                DocumentFieldFillSize::AnyDocumentFillSize,
+                platform_version,
+            )
+            .expect("expected a random document");
+
+        document.set("attack", 4.into());
+        document.set("defense", 7.into());
+
+        let documents_batch_create_transition =
+            BatchTransition::new_document_creation_transition_from_document(
+                document.clone(),
+                card_document_type,
+                entropy.0,
+                &key,
+                2,
+                0,
+                Some(TokenPaymentInfo::V0(TokenPaymentInfoV0 {
+                    payment_token_contract_id: Some(token_contract.id()),
+                    token_contract_position: 0,
+                    minimum_token_cost: None,
+                    maximum_token_cost: Some(5),
+                    gas_fees_paid_by: GasFeesPaidBy::DocumentOwner,
+                })),
+                &signer,
+                platform_version,
+                None,
+            )
+            .expect("expect to create documents batch transition");
+
+        assert_matches!(
+            documents_batch_create_transition,
+            StateTransition::Batch(BatchTransition::V1(_))
+        );
+
+        let documents_batch_create_serialized_transition = documents_batch_create_transition
+            .serialize_to_bytes()
+            .expect("expected documents batch serialized state transition");
+
+        let transaction = platform.drive.grove.start_transaction();
+
+        let processing_result = platform
+            .platform
+            .process_raw_state_transitions(
+                &vec![documents_batch_create_serialized_transition.clone()],
+                &platform_state,
+                &BlockInfo::default(),
+                &transaction,
+                platform_version,
+                false,
+                None,
+            )
+            .expect("expected to process state transition");
+
+        assert_matches!(
+            processing_result.execution_results().as_slice(),
+            [StateTransitionExecutionResult::SuccessfulExecution { .. }]
+        );
+
+        platform
+            .drive
+            .grove
+            .commit_transaction(transaction)
+            .unwrap()
+            .expect("expected to commit transaction");
+
+        let token_balance = platform
+            .drive
+            .fetch_identity_token_balance(
+                token_id.to_buffer(),
+                buyer.id().to_buffer(),
+                None,
+                platform_version,
+            )
+            .expect("expected to fetch token balance");
+
+        // He had 15, but spent 5
+        assert_eq!(token_balance, Some(10));
+
+        let token_supply = platform
+            .drive
+            .fetch_token_total_supply(token_id.to_buffer(), None, platform_version)
+            .expect("expected to fetch total supply");
+
+        assert_eq!(token_supply, Some(100015));
+
+        let token_balance = platform
+            .drive
+            .fetch_identity_token_balance(
+                token_id.to_buffer(),
+                document_contract_owner_id.id().to_buffer(),
+                None,
+                platform_version,
+            )
+            .expect("expected to fetch token balance");
+
+        // He was paid 5
+        assert_eq!(token_balance, Some(5));
     }
 }

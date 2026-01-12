@@ -29,7 +29,8 @@ pub use factory::*;
 #[cfg(any(
     feature = "data-contract-value-conversion",
     feature = "data-contract-cbor-conversion",
-    feature = "data-contract-json-conversion"
+    feature = "data-contract-json-conversion",
+    feature = "data-contract-serde-conversion"
 ))]
 pub mod conversion;
 #[cfg(feature = "client")]
@@ -69,14 +70,16 @@ pub type DocumentName = String;
 pub type TokenName = String;
 pub type GroupContractPosition = u16;
 pub type TokenContractPosition = u16;
+pub type DataContractWithSerialization = (DataContract, Vec<u8>);
 type PropertyPath = String;
 
 pub const INITIAL_DATA_CONTRACT_VERSION: u32 = 1;
 
-// Define static empty BTreeMaps
-static EMPTY_GROUPS: Lazy<BTreeMap<GroupContractPosition, Group>> = Lazy::new(|| BTreeMap::new());
+// Define static empty BTreeMaps and Vecs
+static EMPTY_GROUPS: Lazy<BTreeMap<GroupContractPosition, Group>> = Lazy::new(BTreeMap::new);
 static EMPTY_TOKENS: Lazy<BTreeMap<TokenContractPosition, TokenConfiguration>> =
-    Lazy::new(|| BTreeMap::new());
+    Lazy::new(BTreeMap::new);
+static EMPTY_KEYWORDS: Lazy<Vec<String>> = Lazy::new(Vec::new);
 
 /// Understanding Data Contract versioning
 /// Data contract versioning is both for the code structure and for serialization.
@@ -100,9 +103,6 @@ static EMPTY_TOKENS: Lazy<BTreeMap<TokenContractPosition, TokenConfiguration>> =
 /// - the contract structure can imply missing parts based on default behavior
 /// - the contract structure can disable certain features dependant on missing information
 /// - the contract might be unusable until it is updated by the owner
-///
-
-/// Here we use PlatformSerialize, because
 #[derive(Debug, Clone, PartialEq, From, PlatformVersioned)]
 pub enum DataContract {
     V0(DataContractV0),
@@ -339,7 +339,6 @@ mod tests {
         let platform_version = PlatformVersion::latest();
         let data_contract = load_system_data_contract(Dashpay, platform_version)
             .expect("expected dashpay contract");
-        let platform_version = PlatformVersion::latest();
         let serialized = data_contract
             .serialize_to_bytes_with_platform_version(platform_version)
             .expect("expected to serialize data contract");

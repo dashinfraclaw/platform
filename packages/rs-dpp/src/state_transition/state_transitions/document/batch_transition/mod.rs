@@ -21,12 +21,15 @@ pub use self::batched_transition::{
     token_config_update_transition::TokenConfigUpdateTransition,
     token_destroy_frozen_funds_transition,
     token_destroy_frozen_funds_transition::TokenDestroyFrozenFundsTransition,
+    token_direct_purchase_transition,
+    token_direct_purchase_transition::TokenDirectPurchaseTransition,
     token_emergency_action_transition,
     token_emergency_action_transition::TokenEmergencyActionTransition, token_freeze_transition,
     token_freeze_transition::TokenFreezeTransition, token_mint_transition,
-    token_mint_transition::TokenMintTransition, token_transfer_transition,
-    token_transfer_transition::TokenTransferTransition, token_unfreeze_transition,
-    token_unfreeze_transition::TokenUnfreezeTransition,
+    token_mint_transition::TokenMintTransition, token_set_price_for_direct_purchase_transition,
+    token_set_price_for_direct_purchase_transition::TokenSetPriceForDirectPurchaseTransition,
+    token_transfer_transition, token_transfer_transition::TokenTransferTransition,
+    token_unfreeze_transition, token_unfreeze_transition::TokenUnfreezeTransition,
 };
 
 use platform_serialization_derive::{PlatformDeserialize, PlatformSerialize, PlatformSignable};
@@ -40,6 +43,7 @@ mod identity_signed;
 mod json_conversion;
 pub mod methods;
 pub mod resolvers;
+mod state_transition_estimated_fee_validation;
 mod state_transition_like;
 mod v0;
 mod v1;

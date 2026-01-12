@@ -9,8 +9,8 @@ use crate::rpc::core::CoreRPCLike;
 
 use dpp::dashcore::ProTxHash;
 
-use dashcore_rpc::json::DMNStateDiff;
 use dpp::block::block_info::BlockInfo;
+use dpp::dashcore_rpc::json::DMNStateDiff;
 use dpp::version::PlatformVersion;
 use drive::grovedb::Transaction;
 use drive::util::batch::DriveOperation;
@@ -37,7 +37,7 @@ where
     /// # Returns
     ///
     /// * Result<(), Error> - Returns Ok(()) if the update is successful. Returns an error if
-    /// there is a problem updating the voter identity.
+    ///   there is a problem updating the voter identity.
     pub(in crate::execution::platform_events::core_based_updates::update_masternode_identities) fn update_voter_identity(
         &self,
         masternode: &(ProTxHash, DMNStateDiff),

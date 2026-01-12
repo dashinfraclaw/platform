@@ -54,7 +54,7 @@ pub(super) trait ValidateStateTransitionIdentitySignatureV0<'a> {
     ) -> Result<ConsensusValidationResult<PartialIdentity>, Error>;
 }
 
-impl<'a> ValidateStateTransitionIdentitySignatureV0<'a> for StateTransition {
+impl ValidateStateTransitionIdentitySignatureV0<'_> for StateTransition {
     fn validate_state_transition_identity_signed_v0(
         &self,
         drive: &Drive,
@@ -72,7 +72,12 @@ impl<'a> ValidateStateTransitionIdentitySignatureV0<'a> for StateTransition {
                     "state_transition does not have a public key Id to verify".to_string(),
                 ))?;
 
-        let owner_id = self.owner_id();
+        let Some(owner_id) = self.owner_id() else {
+            return Err(ProtocolError::CorruptedCodeExecution(
+                "state_transition must have an owner id to be identity signed".to_string(),
+            )
+            .into());
+        };
 
         let allowed_purposes =
             self.purpose_requirement()
@@ -198,7 +203,8 @@ impl<'a> ValidateStateTransitionIdentitySignatureV0<'a> for StateTransition {
         let operation = SignatureVerificationOperation::new(public_key.key_type());
         execution_context.add_operation(ValidationOperation::SignatureVerification(operation));
 
-        let signature_is_valid = self.verify_signature(public_key, &NativeBlsModule);
+        let signature_is_valid =
+            self.verify_identity_signed_signature(public_key, &NativeBlsModule);
 
         if let Err(err) = signature_is_valid {
             let consensus_error = convert_to_consensus_signature_error(err)?;

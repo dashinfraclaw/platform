@@ -25,6 +25,14 @@ impl RetrieveIdentityInfo {
         }
     }
 
+    pub fn only_revision() -> Self {
+        RetrieveIdentityInfo {
+            query_by_key_id_key_count: 0,
+            request_balance: false,
+            request_revision: true,
+        }
+    }
+
     pub fn one_key() -> Self {
         RetrieveIdentityInfo {
             query_by_key_id_key_count: 1,
@@ -68,9 +76,11 @@ pub enum ValidationOperation {
     RetrieveIdentityTokenBalance,
     RetrieveIdentity(RetrieveIdentityInfo),
     RetrievePrefundedSpecializedBalance,
+    RetrieveAddressNonceAndBalance(u16),
     PerformNetworkThresholdSigning,
     SingleSha256(HashBlockCount),
     DoubleSha256(HashBlockCount),
+    Ripemd160(HashBlockCount),
     ValidateKeyStructure(KeyCount), // This is extremely cheap
     SignatureVerification(SignatureVerificationOperation),
     PrecalculatedOperation(FeeResult),
@@ -79,6 +89,7 @@ pub enum ValidationOperation {
 pub trait OperationLike {
     fn processing_cost(&self, platform_version: &PlatformVersion) -> Result<Credits, Error>;
 
+    #[allow(dead_code)]
     fn storage_cost(&self, platform_version: &PlatformVersion) -> Result<Credits, Error>;
 }
 
@@ -122,6 +133,17 @@ impl ValidationOperation {
                             platform_version.fee_version.hashing.single_sha256_base
                                 + platform_version.fee_version.hashing.sha256_per_block
                                     * (*block_count as u64),
+                        )
+                        .ok_or(ExecutionError::Overflow(
+                            "execution processing fee overflow error",
+                        ))?;
+                }
+                ValidationOperation::Ripemd160(block_count) => {
+                    fee_result.processing_fee = fee_result
+                        .processing_fee
+                        .checked_add(
+                            platform_version.fee_version.hashing.ripemd160_per_block
+                                * (*block_count as u64),
                         )
                         .ok_or(ExecutionError::Overflow(
                             "execution processing fee overflow error",
@@ -230,6 +252,20 @@ impl ValidationOperation {
                         .fee_version
                         .processing
                         .fetch_identity_token_balance_processing_cost;
+
+                    fee_result.processing_fee = fee_result
+                        .processing_fee
+                        .checked_add(operation_cost)
+                        .ok_or(ExecutionError::Overflow(
+                            "execution processing fee overflow error",
+                        ))?;
+                }
+                ValidationOperation::RetrieveAddressNonceAndBalance(key_count) => {
+                    let operation_cost = platform_version
+                        .fee_version
+                        .processing
+                        .fetch_key_with_type_nonce_and_balance_cost
+                        * *key_count as u64;
 
                     fee_result.processing_fee = fee_result
                         .processing_fee

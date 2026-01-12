@@ -1,10 +1,11 @@
 use crate::error::Error;
 use crate::platform_types::platform::{Platform, PlatformRef};
-use crate::platform_types::platform_state::PlatformState;
+use crate::platform_types::platform_state::{PlatformState, PlatformStateV0Methods};
 use crate::rpc::core::CoreRPCLike;
 use dpp::block::block_info::BlockInfo;
 use dpp::consensus::codes::ErrorWithCode;
 use dpp::fee::fee_result::FeeResult;
+use std::collections::BTreeMap;
 
 use crate::execution::types::execution_event::ExecutionEvent;
 use crate::execution::types::state_transition_container::v0::{
@@ -14,7 +15,6 @@ use crate::execution::types::state_transition_container::v0::{
 use crate::execution::validation::state_transition::processor::process_state_transition;
 use crate::metrics::{state_transition_execution_histogram, HistogramTiming};
 use crate::platform_types::event_execution_result::EventExecutionResult;
-use crate::platform_types::platform_state::v0::PlatformStateV0Methods;
 use crate::platform_types::state_transitions_processing_result::{
     NotExecutedReason, StateTransitionExecutionResult, StateTransitionsProcessingResult,
 };
@@ -59,6 +59,7 @@ where
     /// This function may return an `Error` variant if there is a problem with deserializing the raw
     /// state transitions, processing state transitions, or executing events.
     ///
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn process_raw_state_transitions_v0(
         &self,
         raw_state_transitions: &[Vec<u8>],
@@ -85,7 +86,7 @@ where
             // If we propose state transitions, we need to check if we have a time limit for processing
             // set and if we have exceeded it.
             let execution_result = if proposing_state_transitions
-                && timer.map_or(false, |timer| {
+                && timer.is_some_and(|timer| {
                     timer.elapsed().as_millis()
                         > self
                             .config
@@ -148,9 +149,11 @@ where
                         let elapsed_time = start_time.elapsed() + decoding_elapsed_time;
 
                         let code = match &execution_result {
-                            StateTransitionExecutionResult::SuccessfulExecution(_, _) => 0,
-                            StateTransitionExecutionResult::PaidConsensusError(error, _)
-                            | StateTransitionExecutionResult::UnpaidConsensusError(error) => {
+                            StateTransitionExecutionResult::SuccessfulExecution { .. } => 0,
+                            StateTransitionExecutionResult::PaidConsensusError {
+                                error, ..
+                            } => error.code(),
+                            StateTransitionExecutionResult::UnpaidConsensusError(error) => {
                                 error.code()
                             }
                             StateTransitionExecutionResult::InternalError(_) => 1,
@@ -216,6 +219,7 @@ where
         Ok(processing_result)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn process_validation_result_v0<'a>(
         &self,
         raw_state_transition: &'a [u8], //used for errors
@@ -277,6 +281,7 @@ where
                     errors,
                     block_info,
                     transaction,
+                    None, // No address balance tracking for invalid state transitions
                     platform_version,
                     previous_fee_versions,
                 )
@@ -305,10 +310,10 @@ where
                         );
                     }
 
-                    StateTransitionExecutionResult::PaidConsensusError(
-                        first_consensus_error,
+                    StateTransitionExecutionResult::PaidConsensusError {
+                        error: first_consensus_error,
                         actual_fees,
-                    )
+                    }
                 }
                 EventExecutionResult::SuccessfulFreeExecution => {
                     if tracing::enabled!(tracing::Level::DEBUG) {
@@ -363,12 +368,14 @@ where
                 }
             })?;
 
+        let mut address_balances = BTreeMap::new();
         let event_execution_result = self
             .execute_event(
                 execution_event,
                 errors,
                 block_info,
                 transaction,
+                Some(&mut address_balances),
                 platform_version,
                 previous_fee_versions,
             )
@@ -393,7 +400,11 @@ where
                     );
                 }
 
-                StateTransitionExecutionResult::SuccessfulExecution(estimated_fees, actual_fees)
+                StateTransitionExecutionResult::SuccessfulExecution {
+                    estimated_fees,
+                    fee_result: actual_fees,
+                    address_balance_changes: address_balances,
+                }
             }
             EventExecutionResult::UnsuccessfulPaidExecution(
                 estimated_fees,
@@ -418,10 +429,10 @@ where
                     );
                 }
 
-                StateTransitionExecutionResult::PaidConsensusError(
-                    payment_consensus_error,
+                StateTransitionExecutionResult::PaidConsensusError {
+                    error: payment_consensus_error,
                     actual_fees,
-                )
+                }
             }
             EventExecutionResult::SuccessfulFreeExecution => {
                 if tracing::enabled!(tracing::Level::DEBUG) {
@@ -435,7 +446,11 @@ where
                     );
                 }
 
-                StateTransitionExecutionResult::SuccessfulExecution(None, FeeResult::default())
+                StateTransitionExecutionResult::SuccessfulExecution {
+                    estimated_fees: None,
+                    fee_result: FeeResult::default(),
+                    address_balance_changes: BTreeMap::new(),
+                }
             }
             EventExecutionResult::UnpaidConsensusExecutionError(mut errors) => {
                 // TODO: In case of balance is not enough, we need to reduce balance only for processing fees

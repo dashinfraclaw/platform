@@ -76,6 +76,7 @@ pub(super) fn delete_withdrawal_data_trigger_v0(
         block_time_ms: None,
     };
 
+    // todo: deal with cost of this operation
     let withdrawals = context
         .platform
         .drive
@@ -136,6 +137,7 @@ mod tests {
     use drive::state_transition_action::batch::batched_transition::document_transition::document_delete_transition_action::v0::DocumentDeleteTransitionActionV0;
     use dpp::system_data_contracts::{load_system_data_contract, SystemDataContract};
     use dpp::tests::fixtures::{get_data_contract_fixture, get_withdrawal_document_fixture};
+    use dpp::tokens::gas_fees_paid_by::GasFeesPaidBy;
     use dpp::version::PlatformVersion;
     use drive::util::object_size_info::DocumentInfo::DocumentRefInfo;
     use drive::util::object_size_info::{DocumentAndContractInfo, OwnedDocumentInfo};
@@ -143,7 +145,7 @@ mod tests {
     use dpp::withdrawal::Pooling;
     use drive::drive::contract::DataContractFetchInfo;
     use crate::execution::types::state_transition_execution_context::v0::StateTransitionExecutionContextV0;
-    use crate::platform_types::platform_state::v0::PlatformStateV0Methods;
+    use crate::platform_types::platform_state::PlatformStateV0Methods;
 
     #[test]
     fn should_throw_error_if_withdrawal_not_found() {
@@ -169,6 +171,7 @@ mod tests {
             document_type_name: "".to_string(),
             data_contract: Arc::new(DataContractFetchInfo::dpns_contract_fixture(1)),
             token_cost: None,
+            gas_fees_paid_by: GasFeesPaidBy::DocumentOwner,
         }
         .into();
 
@@ -230,7 +233,7 @@ mod tests {
         .expect("expected withdrawal document");
 
         let serialized = document
-            .serialize(document_type, platform_version)
+            .serialize(document_type, &data_contract, platform_version)
             .expect("expected to serialize document");
         Document::from_bytes(&serialized, document_type, platform_version)
             .expect("expected to deserialize document");
@@ -312,6 +315,7 @@ mod tests {
                         platform_version.protocol_version,
                     )),
                     token_cost: None,
+                    gas_fees_paid_by: GasFeesPaidBy::DocumentOwner,
                 }),
             }),
         );

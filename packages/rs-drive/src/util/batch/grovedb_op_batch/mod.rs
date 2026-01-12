@@ -7,9 +7,9 @@ use crate::drive::credit_pools::epochs;
 use crate::drive::identity::IdentityRootStructure;
 use crate::drive::{credit_pools, tokens, RootTree};
 use crate::util::batch::grovedb_op_batch::KnownPath::{
-    TokenBalancesRoot, TokenDistributionRoot, TokenIdentityInfoRoot,
-    TokenPerpetualDistributionRoot, TokenPreProgrammedDistributionRoot, TokenStatusRoot,
-    TokenTimedDistributionRoot,
+    TokenBalancesRoot, TokenContractInfoRoot, TokenDirectSellPriceRoot, TokenDistributionRoot,
+    TokenIdentityInfoRoot, TokenPerpetualDistributionRoot, TokenPreProgrammedDistributionRoot,
+    TokenStatusRoot, TokenTimedDistributionRoot,
 };
 use crate::util::storage_flags::StorageFlags;
 use dpp::block::epoch::Epoch;
@@ -50,6 +50,7 @@ enum KnownPath {
     PoolsRoot,                                                        //Level 1
     PoolsInsideEpoch(Epoch),                                          //Level 2
     PreFundedSpecializedBalancesRoot,                                 //Level 1
+    SavedBlockTransactionsRoot,                                       //Level 1
     SpentAssetLockTransactionsRoot,                                   //Level 1
     MiscRoot,                                                         //Level 1
     WithdrawalTransactionsRoot,                                       //Level 1
@@ -57,14 +58,17 @@ enum KnownPath {
     TokenRoot,                                                        //Level 1
     TokenBalancesRoot,                                                //Level 2
     TokenDistributionRoot,                                            //Level 2
+    TokenDirectSellPriceRoot,                                         //Level 2
     TokenTimedDistributionRoot,                                       //Level 3
     TokenPreProgrammedDistributionRoot,                               //Level 3
     TokenPerpetualDistributionRoot,                                   //Level 3
     TokenIdentityInfoRoot,                                            //Level 2
+    TokenContractInfoRoot,                                            //Level 2
     TokenStatusRoot,                                                  //Level 2
     VersionsRoot,                                                     //Level 1
     VotesRoot,                                                        //Level 1
     GroupActionsRoot,                                                 //Level 1
+    SingleUseKeyBalancesRoot,                                         //Level 1
 }
 
 impl From<RootTree> for KnownPath {
@@ -80,6 +84,7 @@ impl From<RootTree> for KnownPath {
             }
             RootTree::Pools => KnownPath::PoolsRoot,
             RootTree::PreFundedSpecializedBalances => KnownPath::PreFundedSpecializedBalancesRoot,
+            RootTree::SavedBlockTransactions => KnownPath::SavedBlockTransactionsRoot,
             RootTree::SpentAssetLockTransactions => KnownPath::SpentAssetLockTransactionsRoot,
             RootTree::Misc => KnownPath::MiscRoot,
             RootTree::WithdrawalTransactions => KnownPath::WithdrawalTransactionsRoot,
@@ -88,6 +93,7 @@ impl From<RootTree> for KnownPath {
             RootTree::Versions => KnownPath::VersionsRoot,
             RootTree::Votes => KnownPath::VotesRoot,
             RootTree::GroupActions => KnownPath::GroupActionsRoot,
+            RootTree::AddressBalances => KnownPath::SingleUseKeyBalancesRoot,
         }
     }
 }
@@ -116,7 +122,7 @@ fn readable_key_info(known_path: KnownPath, key_info: &KeyInfo) -> (String, Opti
                 KnownPath::Root => {
                     if let Ok(root_tree) = RootTree::try_from(key[0]) {
                         (
-                            format!("{}({})", root_tree.to_string(), key[0]),
+                            format!("{}({})", root_tree, key[0]),
                             Some(root_tree.into()),
                         )
                     } else {
@@ -151,7 +157,7 @@ fn readable_key_info(known_path: KnownPath, key_info: &KeyInfo) -> (String, Opti
                 KnownPath::IdentitiesRoot if key.len() == 1 => {
                     if let Ok(root_tree) = IdentityRootStructure::try_from(key[0]) {
                         (
-                            format!("{}({})", root_tree.to_string(), key[0]),
+                            format!("{}({})", root_tree, key[0]),
                             Some(root_tree.into()),
                         )
                     } else {
@@ -239,11 +245,17 @@ fn readable_key_info(known_path: KnownPath, key_info: &KeyInfo) -> (String, Opti
                     tokens::paths::TOKEN_DISTRIBUTIONS_KEY => {
                             (format!("Distribution({})", tokens::paths::TOKEN_DISTRIBUTIONS_KEY), Some(TokenDistributionRoot))
                     }
+                    tokens::paths::TOKEN_DIRECT_SELL_PRICE_KEY => {
+                        (format!("SellPrice({})", tokens::paths::TOKEN_DIRECT_SELL_PRICE_KEY), Some(TokenDirectSellPriceRoot))
+                    }
                     tokens::paths::TOKEN_BALANCES_KEY => {
                             (format!("Balances({})", tokens::paths::TOKEN_BALANCES_KEY), Some(TokenBalancesRoot))
                     }
                     tokens::paths::TOKEN_IDENTITY_INFO_KEY => {
                             (format!("IdentityInfo({})", tokens::paths::TOKEN_IDENTITY_INFO_KEY), Some(TokenIdentityInfoRoot))
+                    }
+                    tokens::paths::TOKEN_CONTRACT_INFO_KEY => {
+                        (format!("ContractInfo({})", tokens::paths::TOKEN_CONTRACT_INFO_KEY), Some(TokenContractInfoRoot))
                     }
                     tokens::paths::TOKEN_STATUS_INFO_KEY => {
                         (format!("Status({})", tokens::paths::TOKEN_STATUS_INFO_KEY), Some(TokenStatusRoot))
@@ -469,7 +481,7 @@ pub trait GroveDbOpBatchV0Methods {
     /// # Returns
     ///
     /// * `Option<Op>` - Returns the found `Op` if it exists. If the `Op` is an `GroveOp::InsertOrReplace`, `GroveOp::Replace`,
-    ///                  or `GroveOp::Patch`, it will be removed from the batch.
+    ///   or `GroveOp::Patch`, it will be removed from the batch.
     fn remove_if_insert(&mut self, path: Vec<Vec<u8>>, key: &[u8]) -> Option<GroveOp>;
 }
 
@@ -661,7 +673,7 @@ impl GroveDbOpBatchV0Methods for GroveDbOpBatch {
     /// # Returns
     ///
     /// * `Option<Op>` - Returns the found `Op` if it exists. If the `Op` is an `GroveOp::InsertOrReplace`, `GroveOp::Replace`,
-    ///                  or `GroveOp::Patch`, it will be removed from the batch.
+    ///   or `GroveOp::Patch`, it will be removed from the batch.
     fn remove_if_insert(&mut self, path: Vec<Vec<u8>>, key: &[u8]) -> Option<GroveOp> {
         let path = KeyInfoPath(
             path.into_iter()

@@ -98,14 +98,12 @@ impl IdentityCreateTransitionV0 {
 
         let public_keys = identity
             .public_keys()
-            .iter()
-            .map(|(_, public_key)| public_key.into())
+            .values()
+            .map(|public_key| public_key.into())
             .collect::<Vec<IdentityPublicKeyInCreation>>();
         identity_create_transition.set_public_keys(public_keys);
 
-        identity_create_transition
-            .set_asset_lock_proof(asset_lock_proof)
-            .map_err(ProtocolError::from)?;
+        identity_create_transition.set_asset_lock_proof(asset_lock_proof)?;
 
         Ok(identity_create_transition)
     }

@@ -12,6 +12,7 @@ pub struct DriveVerifyMethodVersions {
     pub single_document: DriveVerifySingleDocumentMethodVersions,
     pub system: DriveVerifySystemMethodVersions,
     pub voting: DriveVerifyVoteMethodVersions,
+    pub address_funds: DriveVerifyAddressFundsMethodVersions,
     pub state_transition: DriveVerifyStateTransitionMethodVersions,
 }
 
@@ -19,6 +20,7 @@ pub struct DriveVerifyMethodVersions {
 pub struct DriveVerifyContractMethodVersions {
     pub verify_contract: FeatureVersion,
     pub verify_contract_history: FeatureVersion,
+    pub verify_contract_return_serialization: FeatureVersion,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -35,13 +37,16 @@ pub struct DriveVerifyIdentityMethodVersions {
     pub verify_full_identity_by_public_key_hash: FeatureVersion,
     pub verify_identity_balance_for_identity_id: FeatureVersion,
     pub verify_identity_balances_for_identity_ids: FeatureVersion,
-    pub verify_identity_id_by_public_key_hash: FeatureVersion,
-    pub verify_identity_ids_by_public_key_hashes: FeatureVersion,
+    pub verify_identity_balance_revision_and_addresses_from_inputs: FeatureVersion,
+    pub verify_identity_id_by_unique_public_key_hash: FeatureVersion,
+    pub verify_identity_ids_by_unique_public_key_hashes: FeatureVersion,
     pub verify_identity_keys_by_identity_id: FeatureVersion,
     pub verify_identity_nonce: FeatureVersion,
     pub verify_identity_contract_nonce: FeatureVersion,
     pub verify_identities_contract_keys: FeatureVersion,
     pub verify_identity_revision_for_identity_id: FeatureVersion,
+    pub verify_full_identity_by_non_unique_public_key_hash: FeatureVersion,
+    pub verify_identity_id_by_non_unique_public_key_hash: FeatureVersion,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -50,6 +55,7 @@ pub struct DriveVerifyGroupMethodVersions {
     pub verify_group_infos_in_contract: FeatureVersion,
     pub verify_action_infos: FeatureVersion,
     pub verify_action_signers: FeatureVersion,
+    pub verify_action_signers_total_power: FeatureVersion,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -64,12 +70,15 @@ pub struct DriveVerifyTokenMethodVersions {
     pub verify_token_info_for_identity_id: FeatureVersion,
     pub verify_token_status: FeatureVersion,
     pub verify_token_pre_programmed_distributions: FeatureVersion,
+    pub verify_token_direct_selling_price: FeatureVersion,
+    pub verify_token_direct_selling_prices: FeatureVersion,
+    pub verify_token_perpetual_distribution_last_paid_time: FeatureVersion,
+    pub verify_token_contract_info: FeatureVersion,
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct DriveVerifyVoteMethodVersions {
     pub verify_masternode_vote: FeatureVersion,
-    pub verify_start_at_contender_in_proof: FeatureVersion,
     pub verify_vote_poll_votes_proof: FeatureVersion,
     pub verify_identity_votes_given_proof: FeatureVersion,
     pub verify_vote_poll_vote_state_proof: FeatureVersion,
@@ -86,6 +95,7 @@ pub struct DriveVerifySystemMethodVersions {
     pub verify_total_credits_in_system: FeatureVersion,
     pub verify_upgrade_state: FeatureVersion,
     pub verify_upgrade_vote_status: FeatureVersion,
+    pub verify_finalized_epoch_infos: FeatureVersion,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -97,4 +107,14 @@ pub struct DriveVerifySingleDocumentMethodVersions {
 #[derive(Clone, Debug, Default)]
 pub struct DriveVerifyStateTransitionMethodVersions {
     pub verify_state_transition_was_executed_with_proof: FeatureVersion,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct DriveVerifyAddressFundsMethodVersions {
+    pub verify_address_info: FeatureVersion,
+    pub verify_addresses_infos: FeatureVersion,
+    pub verify_address_funds_trunk_query: FeatureVersion,
+    pub verify_address_funds_branch_query: FeatureVersion,
+    pub verify_recent_address_balance_changes: FeatureVersion,
+    pub verify_compacted_address_balance_changes: FeatureVersion,
 }

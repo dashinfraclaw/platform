@@ -38,7 +38,7 @@ pub const EMPTY_TREE_STORAGE_SIZE: usize = 33;
 pub const MAX_INDEX_SIZE: usize = 255;
 pub const STORAGE_FLAGS_SIZE: usize = 2;
 
-mod property_names {
+pub(crate) mod property_names {
     pub const DOCUMENTS_KEEP_HISTORY: &str = "documentsKeepHistory";
     pub const DOCUMENTS_MUTABLE: &str = "documentsMutable";
 
@@ -88,6 +88,7 @@ pub enum DocumentTypeMutRef<'a> {
     V1(&'a mut DocumentTypeV1),
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, PartialEq, From)]
 pub enum DocumentType {
     V0(DocumentTypeV0),
@@ -95,14 +96,14 @@ pub enum DocumentType {
 }
 
 impl DocumentType {
-    pub const fn as_ref(&self) -> DocumentTypeRef {
+    pub const fn as_ref(&self) -> DocumentTypeRef<'_> {
         match self {
             DocumentType::V0(v0) => DocumentTypeRef::V0(v0),
             DocumentType::V1(v1) => DocumentTypeRef::V1(v1),
         }
     }
 
-    pub fn as_mut_ref(&mut self) -> DocumentTypeMutRef {
+    pub fn as_mut_ref(&mut self) -> DocumentTypeMutRef<'_> {
         match self {
             DocumentType::V0(v0) => DocumentTypeMutRef::V0(v0),
             DocumentType::V1(v1) => DocumentTypeMutRef::V1(v1),
@@ -125,7 +126,7 @@ impl DocumentType {
     }
 }
 
-impl<'a> DocumentTypeRef<'a> {
+impl DocumentTypeRef<'_> {
     pub fn to_owned_document_type(&self) -> DocumentType {
         match self {
             DocumentTypeRef::V0(v0) => DocumentType::V0((*v0).to_owned()),
@@ -136,8 +137,8 @@ impl<'a> DocumentTypeRef<'a> {
 
 impl DocumentTypeBasicMethods for DocumentType {}
 
-impl<'a> DocumentTypeBasicMethods for DocumentTypeRef<'a> {}
+impl DocumentTypeBasicMethods for DocumentTypeRef<'_> {}
 
 impl DocumentTypeV0Methods for DocumentType {}
 
-impl<'a> DocumentTypeV0Methods for DocumentTypeRef<'a> {}
+impl DocumentTypeV0Methods for DocumentTypeRef<'_> {}

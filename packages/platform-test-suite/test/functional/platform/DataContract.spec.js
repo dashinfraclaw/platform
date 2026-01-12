@@ -25,11 +25,11 @@ describe('Platform', () => {
     let identity;
 
     before(async () => {
-      client = await createClientWithFundedWallet(35000000);
+      client = await createClientWithFundedWallet(350000000); // 3.5 Dash
 
       // Looks like updating the contact and keeping history requires about
       // 7 million credits in fees. Investigate this further.
-      identity = await client.platform.identities.register(30000000);
+      identity = await client.platform.identities.register(300000000); // 3 Dash
       const nextNonce = await client.platform
         .nonceManager.bumpIdentityNonce(identity.getId());
       dataContractFixture = await getDataContractFixture(nextNonce);
@@ -57,6 +57,31 @@ describe('Platform', () => {
       expect(broadcastError).to.be.an.instanceOf(StateTransitionBroadcastError);
       expect(broadcastError.getCause().getCode()).to.equal(20000);
       expect(broadcastError.getCause()).to.be.an.instanceOf(IdentityNotFoundError);
+    });
+
+    it('should expose validation error when document property positions are not contiguous', async () => {
+      // Additional wait time to mitigate testnet latency
+      await waitForSTPropagated();
+
+      const identityNonce = await client.platform.nonceManager
+        .bumpIdentityNonce(identity.getId());
+      const invalidDataContract = await getDataContractFixture(identityNonce, identity.getId());
+
+      const documentSchema = invalidDataContract.getDocumentSchema('niceDocument');
+      documentSchema.properties.name.position = 5;
+      invalidDataContract.setDocumentSchema('niceDocument', documentSchema, { skipValidation: true });
+
+      let broadcastError;
+
+      try {
+        await client.platform.contracts.publish(invalidDataContract, identity);
+      } catch (e) {
+        broadcastError = e;
+      }
+
+      expect(broadcastError).to.be.an.instanceOf(StateTransitionBroadcastError);
+      expect(broadcastError.getCode()).to.equal(10411);
+      expect(broadcastError.getMessage()).to.equal('position field is not present for document type "niceDocument"');
     });
 
     it('should create new data contract with previously created identity as an owner', async () => {

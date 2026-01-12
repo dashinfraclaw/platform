@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::ops::RangeInclusive;
 use std::sync::Arc;
 use grovedb::TransactionArg;
 use dpp::balances::credits::TokenAmount;
@@ -60,6 +61,7 @@ impl TokenClaimTransitionActionV0 {
     ///
     /// * `Result<ConsensusValidationResult<TokenClaimTransitionActionV0>, Error>` - Returns the constructed `TokenClaimTransitionActionV0` if successful,
     ///   or an error if any issue arises, such as missing data or an invalid state transition.
+    #[allow(clippy::too_many_arguments)]
     pub fn try_from_token_claim_transition_with_contract_lookup(
         drive: &Drive,
         owner_id: Identifier,
@@ -117,6 +119,7 @@ impl TokenClaimTransitionActionV0 {
     ///   `TokenClaimTransitionActionV0` and a `FeeResult` if successful. If an error occurs (e.g., missing data or
     ///   invalid state transition), it returns an `Error`.
     ///
+    #[allow(clippy::too_many_arguments)]
     pub fn try_from_borrowed_token_claim_transition_with_contract_lookup(
         drive: &Drive,
         owner_id: Identifier,
@@ -163,7 +166,8 @@ impl TokenClaimTransitionActionV0 {
             None,
         )?;
 
-        let base_action = match base_action_validation_result.is_valid() {
+        // We can not change the note on a claim
+        let (base_action, _change_note) = match base_action_validation_result.is_valid() {
             true => base_action_validation_result.into_data()?,
             false => {
                 let bump_action =
@@ -177,7 +181,7 @@ impl TokenClaimTransitionActionV0 {
 
                 return Ok((
                     ConsensusValidationResult::new_with_data_and_errors(
-                        batched_action.into(),
+                        batched_action,
                         base_action_validation_result.errors,
                     ),
                     fee_result,
@@ -204,7 +208,7 @@ impl TokenClaimTransitionActionV0 {
 
                     return Ok((
                         ConsensusValidationResult::new_with_data_and_errors(
-                            batched_action.into(),
+                            batched_action,
                             vec![ConsensusError::StateError(
                                 StateError::InvalidTokenClaimPropertyMismatch(
                                     InvalidTokenClaimPropertyMismatch::new(
@@ -285,7 +289,7 @@ impl TokenClaimTransitionActionV0 {
 
                     return Ok((
                         ConsensusValidationResult::new_with_data_and_errors(
-                            batched_action.into(),
+                            batched_action,
                             vec![ConsensusError::StateError(
                                 StateError::InvalidTokenClaimNoCurrentRewards(
                                     InvalidTokenClaimNoCurrentRewards::new(
@@ -325,7 +329,7 @@ impl TokenClaimTransitionActionV0 {
 
                     return Ok((
                         ConsensusValidationResult::new_with_data_and_errors(
-                            batched_action.into(),
+                            batched_action,
                             vec![ConsensusError::StateError(
                                 StateError::InvalidTokenClaimPropertyMismatch(
                                     InvalidTokenClaimPropertyMismatch::new(
@@ -365,7 +369,7 @@ impl TokenClaimTransitionActionV0 {
 
                     return Ok((
                         ConsensusValidationResult::new_with_data_and_errors(
-                            batched_action.into(),
+                            batched_action,
                             vec![ConsensusError::StateError(
                                 StateError::InvalidTokenClaimWrongClaimant(
                                     InvalidTokenClaimWrongClaimant::new(
@@ -437,7 +441,7 @@ impl TokenClaimTransitionActionV0 {
                         ),
                         perpetual_distribution
                             .distribution_type()
-                            .rewards_in_interval::<fn(EpochIndex) -> Option<RewardRatio>>(
+                            .rewards_in_interval::<fn(RangeInclusive<EpochIndex>) -> Option<RewardRatio>>(
                                 contract_creation_cycle_start,
                                 start_from_moment_for_distribution,
                                 max_cycle_moment,
@@ -448,7 +452,7 @@ impl TokenClaimTransitionActionV0 {
                         TokenDistributionResolvedRecipient::Identity(identifier),
                         perpetual_distribution
                             .distribution_type()
-                            .rewards_in_interval::<fn(EpochIndex) -> Option<RewardRatio>>(
+                            .rewards_in_interval::<fn(RangeInclusive<EpochIndex>) -> Option<RewardRatio>>(
                                 contract_creation_cycle_start,
                                 start_from_moment_for_distribution,
                                 max_cycle_moment,
@@ -480,15 +484,41 @@ impl TokenClaimTransitionActionV0 {
                                 contract_creation_cycle_start,
                                 start_from_moment_for_distribution,
                                 max_cycle_moment,
-                                Some(|epoch_index| {
-                                    epochs.get(&epoch_index).map(|epoch_info| RewardRatio {
-                                        numerator: epoch_info
-                                            .block_proposers()
-                                            .get(&owner_id)
-                                            .copied()
-                                            .unwrap_or_default(),
-                                        denominator: epoch_info.total_blocks_in_epoch(),
-                                    })
+                                Some(|range_epoch_index: RangeInclusive<EpochIndex>| {
+                                    if range_epoch_index.start() == range_epoch_index.end() {
+                                        epochs.get(range_epoch_index.start()).map(|epoch_info| RewardRatio {
+                                            numerator: epoch_info
+                                                .block_proposers()
+                                                .get(&owner_id)
+                                                .copied()
+                                                .unwrap_or_default(),
+                                            denominator: epoch_info.total_blocks_in_epoch(),
+                                        })
+                                    } else {
+                                        let mut total_blocks = 0;
+                                        let mut total_proposed_blocks = 0;
+
+                                        for epoch_index in range_epoch_index {
+                                            if let Some(epoch_info) = epochs.get(&epoch_index) {
+                                                total_blocks += epoch_info.total_blocks_in_epoch();
+                                                total_proposed_blocks += epoch_info
+                                                    .block_proposers()
+                                                    .get(&owner_id)
+                                                    .copied()
+                                                    .unwrap_or_default();
+                                            }
+                                        }
+
+                                        // Return ratio if we have non-zero total blocks
+                                        if total_blocks > 0 {
+                                            Some(RewardRatio {
+                                                numerator: total_proposed_blocks,
+                                                denominator: total_blocks,
+                                            })
+                                        } else {
+                                            None
+                                        }
+                                    }
                                 }),
                             )?;
 
@@ -511,7 +541,7 @@ impl TokenClaimTransitionActionV0 {
 
                     return Ok((
                         ConsensusValidationResult::new_with_data_and_errors(
-                            batched_action.into(),
+                            batched_action,
                             vec![ConsensusError::StateError(
                                 StateError::InvalidTokenClaimNoCurrentRewards(
                                     InvalidTokenClaimNoCurrentRewards::new(

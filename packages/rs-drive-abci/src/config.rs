@@ -2,8 +2,8 @@ use crate::logging::LogConfigs;
 use crate::utils::from_str_or_number;
 use crate::{abci::config::AbciConfig, error::Error};
 use bincode::{Decode, Encode};
-use dashcore_rpc::json::QuorumType;
 use dpp::dashcore::Network;
+use dpp::dashcore_rpc::json::QuorumType;
 use dpp::util::deserializer::ProtocolVersion;
 use dpp::version::INITIAL_PROTOCOL_VERSION;
 use drive::config::DriveConfig;
@@ -74,6 +74,7 @@ impl CheckTxCoreRpcConfig {
 /// Configuration for Dash Core related things
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
+#[derive(Default)]
 pub struct CoreConfig {
     /// Core RPC config for consensus
     #[serde(flatten)]
@@ -81,15 +82,6 @@ pub struct CoreConfig {
     /// Core RPC config for check tx
     #[serde(flatten)]
     pub check_tx_rpc: CheckTxCoreRpcConfig,
-}
-
-impl Default for CoreConfig {
-    fn default() -> Self {
-        Self {
-            consensus_rpc: Default::default(),
-            check_tx_rpc: Default::default(),
-        }
-    }
 }
 
 /// Configuration of the execution part of Dash Platform.
@@ -238,6 +230,8 @@ struct PlatformConfigIntermediate {
     pub instant_lock: InstantLockConfig,
     pub block_spacing_ms: u64,
     #[serde(default = "PlatformConfig::default_initial_protocol_version")]
+    // TODO: Is not using
+    #[allow(dead_code)]
     pub initial_protocol_version: ProtocolVersion,
     pub db_path: PathBuf,
     #[serde(default)]
@@ -885,6 +879,8 @@ pub struct PlatformTestConfig {
     pub disable_instant_lock_signature_verification: bool,
     /// Disable temporarily disabled contested documents validation
     pub disable_contested_documents_is_allowed_validation: bool,
+    /// Disable checkpoint creation during tests
+    pub disable_checkpoints: bool,
 }
 
 #[cfg(feature = "testing-config")]
@@ -897,6 +893,7 @@ impl PlatformTestConfig {
             block_commit_signature_verification: false,
             disable_instant_lock_signature_verification: true,
             disable_contested_documents_is_allowed_validation: true,
+            disable_checkpoints: true,
         }
     }
 }
@@ -910,6 +907,7 @@ impl Default for PlatformTestConfig {
             block_commit_signature_verification: true,
             disable_instant_lock_signature_verification: false,
             disable_contested_documents_is_allowed_validation: true,
+            disable_checkpoints: true,
         }
     }
 }
@@ -918,8 +916,8 @@ impl Default for PlatformTestConfig {
 mod tests {
     use super::FromEnv;
     use crate::logging::LogDestination;
-    use dashcore_rpc::dashcore_rpc_json::QuorumType;
     use dpp::dashcore::Network;
+    use dpp::dashcore_rpc::dashcore_rpc_json::QuorumType;
     use std::env;
 
     #[test]

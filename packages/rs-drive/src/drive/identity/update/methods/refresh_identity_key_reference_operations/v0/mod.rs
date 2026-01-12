@@ -9,7 +9,7 @@ use dpp::block::epoch::Epoch;
 use dpp::identity::identity_public_key::accessors::v0::IdentityPublicKeyGettersV0;
 use dpp::identity::{IdentityPublicKey, Purpose};
 use grovedb::batch::KeyInfoPath;
-use grovedb::reference_path::ReferencePathType;
+use grovedb::element::reference_path::ReferencePathType;
 use grovedb::{Element, EstimatedLayerInformation, TransactionArg};
 use integer_encoding::VarInt;
 use platform_version::version::PlatformVersion;
@@ -17,6 +17,7 @@ use std::collections::HashMap;
 
 impl Drive {
     /// Refreshes identity key reference operations.
+    #[allow(clippy::too_many_arguments)]
     pub fn refresh_identity_key_reference_operations_v0(
         &self,
         identity_id: [u8; 32],
@@ -96,7 +97,7 @@ impl Drive {
             // if there are contract bounds we need to insert them
             self.refresh_potential_contract_info_key_references(
                 identity_id,
-                &key,
+                key,
                 epoch,
                 estimated_costs_only_with_layer_info,
                 transaction,

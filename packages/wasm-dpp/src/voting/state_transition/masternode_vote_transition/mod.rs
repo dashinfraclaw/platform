@@ -13,7 +13,10 @@ use dpp::platform_value::{string_encoding, BinaryData};
 use dpp::serialization::PlatformSerializable;
 use dpp::state_transition::masternode_vote_transition::accessors::MasternodeVoteTransitionAccessorsV0;
 use dpp::state_transition::masternode_vote_transition::MasternodeVoteTransition;
-use dpp::state_transition::{StateTransition, StateTransitionIdentitySigned, StateTransitionLike};
+use dpp::state_transition::{
+    StateTransition, StateTransitionIdentitySigned, StateTransitionLike, StateTransitionOwned,
+    StateTransitionSingleSigned,
+};
 use dpp::version::PlatformVersion;
 use dpp::voting::vote_polls::VotePoll;
 use dpp::voting::votes::resource_vote::accessors::v0::ResourceVoteGettersV0;
@@ -222,7 +225,7 @@ impl MasternodeVoteTransitionWasm {
 
     #[wasm_bindgen(js_name=getUserFeeIncrease)]
     pub fn get_user_fee_increase(&self) -> u16 {
-        self.0.user_fee_increase() as u16
+        self.0.user_fee_increase()
     }
 
     #[wasm_bindgen(js_name=setUserFeeIncrease)]
@@ -253,7 +256,7 @@ impl MasternodeVoteTransitionWasm {
                         contested_document_resource_vote_poll,
                     ) => {
                         let contract_id = IdentifierWrapper::from(
-                            contested_document_resource_vote_poll.contract_id.clone(),
+                            contested_document_resource_vote_poll.contract_id,
                         );
 
                         Reflect::set(&js_object, &"contractId".into(), &contract_id.into())
@@ -333,7 +336,8 @@ impl MasternodeVoteTransitionWasm {
             .sign_by_private_key(private_key.as_slice(), key_type, &bls_adapter)
             .with_js_error()?;
 
-        self.0.set_signature(wrapper.signature().to_owned());
+        self.0
+            .set_signature(wrapper.signature().unwrap().to_owned());
 
         Ok(())
     }
@@ -368,7 +372,7 @@ impl MasternodeVoteTransitionWasm {
             )
             .with_js_error()?;
 
-        let signature = state_transition.signature().to_owned();
+        let signature = state_transition.signature().unwrap().to_owned();
         let signature_public_key_id = state_transition.signature_public_key_id().unwrap_or(0);
 
         self.0.set_signature(signature);

@@ -14,7 +14,7 @@ use dpp::platform_value::BinaryData;
 use dpp::serialization::PlatformSerializable;
 use dpp::state_transition::batch_transition::accessors::DocumentsBatchTransitionAccessorsV0;
 use dpp::state_transition::batch_transition::BatchTransition;
-use dpp::state_transition::StateTransition;
+use dpp::state_transition::{StateTransition, StateTransitionOwned, StateTransitionSingleSigned};
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -25,7 +25,6 @@ use crate::{
     IdentityPublicKeyWasm,
 };
 
-use dpp::ed25519_dalek::ed25519::signature::SignerMut;
 use dpp::state_transition::batch_transition::batched_transition::BatchedTransition;
 use dpp::state_transition::batch_transition::methods::v0::DocumentsBatchTransitionMethodsV0;
 
@@ -105,7 +104,7 @@ impl BatchTransitionWasm {
 
     #[wasm_bindgen(js_name=getUserFeeIncrease)]
     pub fn get_user_fee_increase(&self) -> u16 {
-        self.0.user_fee_increase() as u16
+        self.0.user_fee_increase()
     }
 
     #[wasm_bindgen(js_name=setUserFeeIncrease)]
@@ -302,7 +301,7 @@ impl BatchTransitionWasm {
             )
             .with_js_error()?;
 
-        let signature = state_transition.signature().to_owned();
+        let signature = state_transition.signature().unwrap().to_owned();
         let signature_public_key_id = state_transition.signature_public_key_id().unwrap_or(0);
 
         self.0.set_signature(signature);
@@ -340,7 +339,7 @@ impl BatchTransitionWasm {
         let bls_adapter = BlsAdapter(bls);
 
         let verification_result = StateTransition::Batch(self.0.clone())
-            .verify_signature(&identity_public_key.to_owned().into(), &bls_adapter);
+            .verify_identity_signed_signature(&identity_public_key.to_owned().into(), &bls_adapter);
 
         match verification_result {
             Ok(()) => Ok(true),

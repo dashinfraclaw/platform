@@ -100,7 +100,7 @@ impl<C> Platform<C> {
 
         // We paid to all epoch proposers last block. Since proposers paid count
         // was equal to proposers limit, we paid to 0 proposers this block
-        if proposers_paid_count.len() == 0 {
+        if proposers_paid_count.is_empty() {
             return Ok(None);
         }
 
@@ -270,9 +270,7 @@ mod tests {
 
         assert!(matches!(
             result,
-            Err(DriveError::GroveDB(
-                grovedb::Error::PathParentLayerNotFound(_)
-            ))
+            Err(DriveError::GroveDB(e)) if matches!(e.as_ref(), grovedb::Error::PathParentLayerNotFound(_))
         ));
     }
 }

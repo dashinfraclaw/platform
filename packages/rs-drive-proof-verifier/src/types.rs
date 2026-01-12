@@ -5,18 +5,27 @@
 //! In this case, the [FromProof](crate::FromProof) trait is implemented for dedicated object type
 //! defined in this module.
 
+/// Evonode status
 pub mod evonode_status;
+/// Groups
 pub mod groups;
+/// Identity token balance
 pub mod identity_token_balance;
+/// Token contract info
+pub mod token_contract_info;
+/// Token info
 pub mod token_info;
+/// Token status
 pub mod token_status;
 
+use dpp::address_funds::PlatformAddress;
 use dpp::block::block_info::BlockInfo;
 use dpp::core_types::validator_set::ValidatorSet;
 use dpp::data_contract::document_type::DocumentType;
 use dpp::fee::Credits;
 use dpp::platform_value::Value;
-use dpp::prelude::{IdentityNonce, TimestampMillis};
+use dpp::prelude::{AddressNonce, IdentityNonce, TimestampMillis};
+use dpp::tokens::token_pricing_schedule::TokenPricingSchedule;
 use dpp::version::PlatformVersion;
 pub use dpp::version::ProtocolVersionVoteCount;
 use dpp::voting::contender_structs::{Contender, ContenderWithSerializedDocument};
@@ -26,12 +35,16 @@ use dpp::voting::vote_polls::contested_document_resource_vote_poll::ContestedDoc
 use dpp::voting::vote_polls::VotePoll;
 use dpp::voting::votes::resource_vote::ResourceVote;
 use dpp::{
-    block::{epoch::EpochIndex, extended_epoch_info::ExtendedEpochInfo},
+    block::{
+        epoch::EpochIndex, extended_epoch_info::ExtendedEpochInfo,
+        finalized_epoch_info::FinalizedEpochInfo,
+    },
     dashcore::ProTxHash,
     document::Document,
     identity::KeyID,
     prelude::{DataContract, Identifier, IdentityPublicKey, Revision},
     util::deserializer::ProtocolVersion,
+    ProtocolError,
 };
 use drive::grovedb::query_result_type::Path;
 use drive::grovedb::Element;
@@ -43,7 +56,7 @@ use dpp::dashcore::hashes::Hash;
 #[cfg(feature = "mocks")]
 use {
     bincode::{Decode, Encode},
-    dpp::{version as platform_version, ProtocolError},
+    dpp::version as platform_version,
     platform_serialization::{PlatformVersionEncode, PlatformVersionedDecode},
     platform_serialization_derive::{PlatformDeserialize, PlatformSerialize},
 };
@@ -99,6 +112,26 @@ pub type DataContractHistory = RetrievedValues<u64, DataContract>;
 /// Mapping between data contract IDs and data contracts.
 /// If data contract is not found, it is represented as `None`.
 pub type DataContracts = RetrievedObjects<Identifier, DataContract>;
+
+/// Information about a Platform address including its nonce and balance.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "mocks",
+    derive(Encode, Decode, PlatformSerialize, PlatformDeserialize,),
+    platform_serialize(unversioned)
+)]
+pub struct AddressInfo {
+    /// Address that owns the balance.
+    pub address: PlatformAddress,
+    /// Nonce associated with the address.
+    pub nonce: AddressNonce,
+    /// Balance stored for the address.
+    pub balance: Credits,
+}
+
+/// Mapping between platform addresses and their balance/nonce information.
+/// Missing entries are represented as `None`.
+pub type AddressInfos = RetrievedObjects<PlatformAddress, AddressInfo>;
 
 /// Multiple contenders for a vote resolution.
 ///
@@ -513,6 +546,9 @@ pub type IdentityBalances = RetrievedObjects<Identifier, Credits>;
 /// Collection of epoch information
 pub type ExtendedEpochInfos = RetrievedObjects<EpochIndex, ExtendedEpochInfo>;
 
+/// Collection of finalized epoch information
+pub type FinalizedEpochInfos = RetrievedObjects<EpochIndex, FinalizedEpochInfo>;
+
 /// Results of protocol version upgrade voting.
 ///
 /// Information about the protocol version upgrade states and number of received votes, indexed by protocol version.
@@ -623,3 +659,103 @@ pub struct ProposerBlockCountByRange(pub u64);
 #[derive(Debug)]
 #[cfg_attr(feature = "mocks", derive(serde::Serialize, serde::Deserialize))]
 pub struct ProposerBlockCountById(pub u64);
+
+/// Prices for direct purchase of tokens. Retrieved by [TokenPricingSchedule::fetch_many()].
+pub type TokenDirectPurchasePrices = RetrievedObjects<Identifier, TokenPricingSchedule>;
+
+/// Address balance changes for a single block.
+#[derive(Debug, Clone)]
+#[cfg_attr(
+    feature = "mocks",
+    derive(Encode, Decode, PlatformSerialize, PlatformDeserialize),
+    platform_serialize(unversioned)
+)]
+pub struct BlockAddressBalanceChanges {
+    /// The block height
+    pub block_height: u64,
+    /// The address balance changes in this block
+    pub changes: BTreeMap<PlatformAddress, dpp::balances::credits::CreditOperation>,
+}
+
+/// Recent address balance changes across multiple blocks.
+#[derive(Debug, Clone, Default, derive_more::From)]
+#[cfg_attr(
+    feature = "mocks",
+    derive(Encode, Decode, PlatformSerialize, PlatformDeserialize),
+    platform_serialize(unversioned)
+)]
+pub struct RecentAddressBalanceChanges(pub Vec<BlockAddressBalanceChanges>);
+
+impl RecentAddressBalanceChanges {
+    /// Get the inner vector
+    pub fn into_inner(self) -> Vec<BlockAddressBalanceChanges> {
+        self.0
+    }
+}
+
+/// Compacted address balance changes for a range of blocks.
+#[derive(Debug, Clone)]
+#[cfg_attr(
+    feature = "mocks",
+    derive(Encode, Decode, PlatformSerialize, PlatformDeserialize),
+    platform_serialize(unversioned)
+)]
+pub struct CompactedBlockAddressBalanceChanges {
+    /// The start block height of the compacted range
+    pub start_block_height: u64,
+    /// The end block height of the compacted range
+    pub end_block_height: u64,
+    /// The merged address balance changes for this range
+    pub changes: BTreeMap<PlatformAddress, dpp::balances::credits::BlockAwareCreditOperation>,
+}
+
+/// Compacted address balance changes across multiple ranges.
+#[derive(Debug, Clone, Default, derive_more::From)]
+#[cfg_attr(
+    feature = "mocks",
+    derive(Encode, Decode, PlatformSerialize, PlatformDeserialize),
+    platform_serialize(unversioned)
+)]
+pub struct RecentCompactedAddressBalanceChanges(pub Vec<CompactedBlockAddressBalanceChanges>);
+
+impl RecentCompactedAddressBalanceChanges {
+    /// Get the inner vector
+    pub fn into_inner(self) -> Vec<CompactedBlockAddressBalanceChanges> {
+        self.0
+    }
+}
+
+/// Platform address trunk state for address balance synchronization.
+///
+/// This is a newtype wrapper around [`GroveTrunkQueryResult`](drive::grovedb::GroveTrunkQueryResult)
+/// that represents the result of querying the trunk (top levels) of the address funds tree.
+///
+/// The trunk query returns:
+/// - Elements (addresses with balances) found at the queried depth
+/// - Leaf boundary keys that indicate subtrees requiring further branch queries
+///
+/// This type implements [`FromProof`](crate::FromProof) by delegating to the underlying
+/// `GroveTrunkQueryResult` implementation.
+#[derive(Debug)]
+pub struct PlatformAddressTrunkState(pub drive::grovedb::GroveTrunkQueryResult);
+
+impl PlatformAddressTrunkState {
+    /// Get the inner `GroveTrunkQueryResult`.
+    pub fn into_inner(self) -> drive::grovedb::GroveTrunkQueryResult {
+        self.0
+    }
+}
+
+impl std::ops::Deref for PlatformAddressTrunkState {
+    type Target = drive::grovedb::GroveTrunkQueryResult;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for PlatformAddressTrunkState {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}

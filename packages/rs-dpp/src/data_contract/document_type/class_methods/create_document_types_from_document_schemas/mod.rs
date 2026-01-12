@@ -2,9 +2,8 @@ mod v0;
 mod v1;
 
 use crate::data_contract::config::DataContractConfig;
-use crate::data_contract::document_type::v0::DocumentTypeV0;
 use crate::data_contract::document_type::DocumentType;
-use crate::data_contract::DocumentName;
+use crate::data_contract::{DocumentName, TokenConfiguration, TokenContractPosition};
 use crate::validation::operations::ProtocolValidationOperation;
 use crate::version::PlatformVersion;
 use crate::ProtocolError;
@@ -25,6 +24,7 @@ impl DocumentType {
     /// # Parameters
     ///
     /// * `data_contract_id`: Identifier for the data contract.
+    /// * `data_contract_system_version`: The version of the data contract
     /// * `contract_document_types_raw`: Vector representing the raw contract document types.
     /// * `definition_references`: BTreeMap representing the definition references.
     /// * `documents_keep_history_contract_default`: A boolean flag that specifies the document's keep history contract default.
@@ -35,10 +35,14 @@ impl DocumentType {
     ///
     /// * `Result<BTreeMap<String, DocumentType>, ProtocolError>`: On success, a map of document types.
     ///   On failure, a ProtocolError.
+    #[allow(clippy::too_many_arguments)]
     pub fn create_document_types_from_document_schemas(
         data_contract_id: Identifier,
+        data_contract_system_version: u16,
+        contract_config_version: u16,
         document_schemas: BTreeMap<DocumentName, Value>,
         schema_defs: Option<&BTreeMap<String, Value>>,
+        token_configurations: &BTreeMap<TokenContractPosition, TokenConfiguration>,
         data_contact_config: &DataContractConfig,
         full_validation: bool,
         has_tokens: bool,
@@ -52,20 +56,26 @@ impl DocumentType {
             .class_method_versions
             .create_document_types_from_document_schemas
         {
-            0 => DocumentTypeV0::create_document_types_from_document_schemas_v0(
+            0 => DocumentType::create_document_types_from_document_schemas_v0(
                 data_contract_id,
+                data_contract_system_version,
+                contract_config_version,
                 document_schemas,
                 schema_defs,
+                token_configurations,
                 data_contact_config,
                 full_validation,
                 validation_operations,
                 platform_version,
             ),
             // in v1 we add the ability to have contracts without documents and just tokens
-            1 => DocumentTypeV0::create_document_types_from_document_schemas_v1(
+            1 => DocumentType::create_document_types_from_document_schemas_v1(
                 data_contract_id,
+                data_contract_system_version,
+                contract_config_version,
                 document_schemas,
                 schema_defs,
+                token_configurations,
                 data_contact_config,
                 full_validation,
                 has_tokens,

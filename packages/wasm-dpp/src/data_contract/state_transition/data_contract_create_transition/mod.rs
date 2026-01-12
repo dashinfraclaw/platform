@@ -10,7 +10,9 @@ use dpp::errors::consensus::ConsensusError;
 use dpp::serialization::{PlatformDeserializable, PlatformSerializable};
 use dpp::state_transition::data_contract_create_transition::accessors::DataContractCreateTransitionAccessorsV0;
 use dpp::state_transition::data_contract_create_transition::DataContractCreateTransition;
-use dpp::state_transition::StateTransitionIdentitySigned;
+use dpp::state_transition::{
+    StateTransitionIdentitySigned, StateTransitionOwned, StateTransitionSingleSigned,
+};
 
 use dpp::state_transition::{StateTransition, StateTransitionValueConvert};
 use dpp::version::PlatformVersion;
@@ -55,9 +57,24 @@ impl DataContractCreateTransitionWasm {
     }
 
     #[wasm_bindgen(js_name=getDataContract)]
-    pub fn get_data_contract(&self) -> DataContractWasm {
-        DataContractWasm::try_from_serialization_format(self.0.data_contract().clone(), false)
-            .expect("should convert from serialziation format")
+    pub fn get_data_contract(
+        &self,
+        protocol_version: Option<u32>,
+    ) -> Result<DataContractWasm, JsValue> {
+        // Use provided protocol version or latest if not specified
+        let platform_version = if let Some(version) = protocol_version {
+            PlatformVersion::get(version)
+                .map_err(ProtocolError::PlatformVersionError)
+                .with_js_error()?
+        } else {
+            PlatformVersion::latest()
+        };
+
+        DataContractWasm::try_from_serialization_format_with_platform_version(
+            self.0.data_contract().clone(),
+            false,
+            platform_version,
+        )
     }
 
     // #[wasm_bindgen(js_name=setDataContractConfig)]
@@ -89,7 +106,7 @@ impl DataContractCreateTransitionWasm {
 
     #[wasm_bindgen(js_name=getUserFeeIncrease)]
     pub fn get_user_fee_increase(&self) -> u16 {
-        self.0.user_fee_increase() as u16
+        self.0.user_fee_increase()
     }
 
     #[wasm_bindgen(js_name=getSignature)]
@@ -197,7 +214,7 @@ impl DataContractCreateTransitionWasm {
             )
             .with_js_error()?;
 
-        let signature = state_transition.signature().to_owned();
+        let signature = state_transition.signature().unwrap().to_owned();
         let signature_public_key_id = state_transition.signature_public_key_id().unwrap_or(0);
 
         self.0.set_signature(signature);
@@ -215,7 +232,7 @@ impl DataContractCreateTransitionWasm {
         let bls_adapter = BlsAdapter(bls);
 
         let verification_result = StateTransition::DataContractCreate(self.0.clone())
-            .verify_signature(&identity_public_key.to_owned().into(), &bls_adapter);
+            .verify_identity_signed_signature(&identity_public_key.to_owned().into(), &bls_adapter);
 
         match verification_result {
             Ok(()) => Ok(true),

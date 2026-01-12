@@ -7,11 +7,14 @@ use crate::mock::MockResponse;
 use crate::mock::{provider::GrpcContextProvider, MockDashPlatformSdk};
 use crate::platform::transition::put_settings::PutSettings;
 use crate::platform::{Fetch, Identifier};
-use arc_swap::{ArcSwapAny, ArcSwapOption};
+use arc_swap::ArcSwapOption;
 use dapi_grpc::mock::Mockable;
 use dapi_grpc::platform::v0::{Proof, ResponseMetadata};
 #[cfg(not(target_arch = "wasm32"))]
 use dapi_grpc::tonic::transport::Certificate;
+use dash_context_provider::ContextProvider;
+#[cfg(feature = "mocks")]
+use dash_context_provider::MockContextProvider;
 use dpp::bincode;
 use dpp::bincode::error::DecodeError;
 use dpp::dashcore::Network;
@@ -20,9 +23,7 @@ use dpp::prelude::IdentityNonce;
 use dpp::version::{PlatformVersion, PlatformVersionCurrentVersion};
 use drive::grovedb::operations::proof::GroveDBProof;
 use drive_proof_verifier::types::{IdentityContractNonceFetcher, IdentityNonceFetcher};
-#[cfg(feature = "mocks")]
-use drive_proof_verifier::MockContextProvider;
-use drive_proof_verifier::{ContextProvider, FromProof};
+use drive_proof_verifier::FromProof;
 pub use http::Uri;
 #[cfg(feature = "mocks")]
 use rs_dapi_client::mock::MockDapiClient;
@@ -35,11 +36,12 @@ use std::collections::btree_map::Entry;
 use std::fmt::Debug;
 #[cfg(feature = "mocks")]
 use std::num::NonZeroUsize;
+use std::path::Path;
 #[cfg(feature = "mocks")]
-use std::path::{Path, PathBuf};
-use std::str::FromStr;
+use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::{atomic, Arc};
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::{SystemTime, UNIX_EPOCH};
 #[cfg(feature = "mocks")]
 use tokio::sync::{Mutex, MutexGuard};
@@ -48,10 +50,14 @@ use zeroize::Zeroizing;
 
 /// How many data contracts fit in the cache.
 pub const DEFAULT_CONTRACT_CACHE_SIZE: usize = 100;
+/// How many token configs fit in the cache.
+pub const DEFAULT_TOKEN_CONFIG_CACHE_SIZE: usize = 100;
 /// How many quorum public keys fit in the cache.
 pub const DEFAULT_QUORUM_PUBLIC_KEYS_CACHE_SIZE: usize = 100;
 /// The default identity nonce stale time in seconds
-pub const DEFAULT_IDENTITY_NONCE_STALE_TIME_S: u64 = 1200; //20 mins
+pub const DEFAULT_IDENTITY_NONCE_STALE_TIME_S: u64 = 1200; //20 minutes
+/// The default metadata time tolerance for checkpoint queries in milliseconds
+const ADDRESS_STATE_TIME_TOLERANCE_MS: u64 = 31 * 60 * 1000;
 
 /// The default request settings for the SDK, used when the user does not provide any.
 ///
@@ -203,6 +209,24 @@ enum SdkInstance {
     },
 }
 
+/// Helper function to get current timestamp in seconds
+/// Works in both native and WASM environments
+fn get_current_time_seconds() -> u64 {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Ok(n) => n.as_secs(),
+            Err(_) => panic!("SystemTime before UNIX EPOCH!"),
+        }
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        // In WASM, we use JavaScript's Date.now() which returns milliseconds
+        // We need to convert to seconds
+        (js_sys::Date::now() / 1000.0) as u64
+    }
+}
+
 impl Sdk {
     /// Initialize Dash Platform  SDK in mock mode.
     ///
@@ -229,11 +253,24 @@ impl Sdk {
         response: O::Response,
     ) -> Result<Option<O>, Error>
     where
-        O::Request: Mockable,
+        O::Request: Mockable + TransportRequest,
     {
         self.parse_proof_with_metadata(request, response)
             .await
             .map(|result| result.0)
+    }
+
+    /// Return freshness criteria (height tolerance and time tolerance) for given request method.
+    fn freshness_criteria(&self, method_name: &str) -> (Option<u64>, Option<u64>) {
+        match method_name {
+            "get_addresses_trunk_state" | "get_addresses_branch_state" => {
+                (None, Some(ADDRESS_STATE_TIME_TOLERANCE_MS))
+            }
+            _ => (
+                self.metadata_height_tolerance,
+                self.metadata_time_tolerance_ms,
+            ),
+        }
     }
 
     /// Retrieve object `O` from proof contained in `request` (of type `R`) and `response`.
@@ -250,7 +287,7 @@ impl Sdk {
         response: O::Response,
     ) -> Result<(Option<O>, ResponseMetadata), Error>
     where
-        O::Request: Mockable,
+        O::Request: Mockable + TransportRequest,
     {
         let (object, metadata, _proof) = self
             .parse_proof_with_metadata_and_proof(request, response)
@@ -260,15 +297,21 @@ impl Sdk {
     }
 
     /// Verify response metadata against the current state of the SDK.
-    fn verify_response_metadata(&self, metadata: &ResponseMetadata) -> Result<(), Error> {
-        if let Some(height_tolerance) = self.metadata_height_tolerance {
+    pub fn verify_response_metadata(
+        &self,
+        method_name: &str,
+        metadata: &ResponseMetadata,
+    ) -> Result<(), Error> {
+        let (metadata_height_tolerance, metadata_time_tolerance_ms) =
+            self.freshness_criteria(method_name);
+        if let Some(height_tolerance) = metadata_height_tolerance {
             verify_metadata_height(
                 metadata,
                 height_tolerance,
                 Arc::clone(&(self.metadata_last_seen_height)),
             )?;
         };
-        if let Some(time_tolerance) = self.metadata_time_tolerance_ms {
+        if let Some(time_tolerance) = metadata_time_tolerance_ms {
             let now = chrono::Utc::now().timestamp_millis() as u64;
             verify_metadata_time(metadata, now, time_tolerance)?;
         };
@@ -291,11 +334,12 @@ impl Sdk {
         response: O::Response,
     ) -> Result<(Option<O>, ResponseMetadata, Proof), Error>
     where
-        O::Request: Mockable,
+        O::Request: Mockable + TransportRequest,
     {
         let provider = self
             .context_provider()
             .ok_or(drive_proof_verifier::Error::ContextProviderNotSet)?;
+        let method_name = request.method_name();
 
         let (object, metadata, proof) = match self.inner {
             SdkInstance::Dapi { .. } => O::maybe_from_proof_with_metadata(
@@ -312,7 +356,11 @@ impl Sdk {
             }
         }?;
 
-        self.verify_response_metadata(&metadata)?;
+        self.verify_response_metadata(method_name, &metadata)
+            .inspect_err(|err| {
+                tracing::warn!(%err,method=method_name,"received response with stale metadata; try another server");
+            })?;
+
         Ok((object, metadata, proof))
     }
 
@@ -335,14 +383,14 @@ impl Sdk {
     /// * the `self` instance is not a `Mock` variant,
     /// * the `self` instance is in use by another thread.
     #[cfg(feature = "mocks")]
-    pub fn mock(&mut self) -> MutexGuard<MockDashPlatformSdk> {
+    pub fn mock(&mut self) -> MutexGuard<'_, MockDashPlatformSdk> {
         if let Sdk {
             inner: SdkInstance::Mock { ref mock, .. },
             ..
         } = self
         {
             mock.try_lock()
-                .expect("mock sdk is in use by another thread and connot be reconfigured")
+                .expect("mock sdk is in use by another thread and cannot be reconfigured")
         } else {
             panic!("not a mock")
         }
@@ -358,10 +406,7 @@ impl Sdk {
         settings: Option<PutSettings>,
     ) -> Result<IdentityNonce, Error> {
         let settings = settings.unwrap_or_default();
-        let current_time_s = match SystemTime::now().duration_since(UNIX_EPOCH) {
-            Ok(n) => n.as_secs(),
-            Err(_) => panic!("SystemTime before UNIX EPOCH!"),
-        };
+        let current_time_s = get_current_time_seconds();
 
         // we start by only using a read lock, as this speeds up the system
         let mut identity_nonce_counter = self.internal_cache.identity_nonce_counter.lock().await;
@@ -380,7 +425,7 @@ impl Sdk {
             }
         };
 
-        if should_query_platform {
+        let nonce = if should_query_platform {
             let platform_nonce = IdentityNonceFetcher::fetch_with_settings(
                 self,
                 identity_id,
@@ -432,7 +477,16 @@ impl Sdk {
                     }
                 }
             }
-        }
+        };
+
+        tracing::trace!(
+            identity_id = %identity_id,
+            bump_first,
+            nonce = ?nonce,
+            "Fetched identity nonce"
+        );
+
+        nonce
     }
 
     // TODO: Move to a separate struct
@@ -447,10 +501,7 @@ impl Sdk {
         settings: Option<PutSettings>,
     ) -> Result<IdentityNonce, Error> {
         let settings = settings.unwrap_or_default();
-        let current_time_s = match SystemTime::now().duration_since(UNIX_EPOCH) {
-            Ok(n) => n.as_secs(),
-            Err(_) => panic!("SystemTime before UNIX EPOCH!"),
-        };
+        let current_time_s = get_current_time_seconds();
 
         // we start by only using a read lock, as this speeds up the system
         let mut identity_contract_nonce_counter = self
@@ -528,6 +579,24 @@ impl Sdk {
         }
     }
 
+    /// Forces reload of the identity nonce from Platform on the next call to `get_identity_nonce`.
+    pub async fn refresh_identity_nonce(&self, identity_id: &Identifier) {
+        {
+            let mut identity_nonce_counter =
+                self.internal_cache.identity_nonce_counter.lock().await;
+            identity_nonce_counter.remove(identity_id);
+        }
+        {
+            let mut identity_contract_nonce_counter = self
+                .internal_cache
+                .identity_contract_nonce_counter
+                .lock()
+                .await;
+            identity_contract_nonce_counter
+                .retain(|(cached_identity_id, _), _| cached_identity_id != identity_id);
+        }
+    }
+
     /// Return [Dash Platform version](PlatformVersion) information used by this SDK.
     ///
     ///
@@ -560,8 +629,8 @@ impl Sdk {
             .swap(Some(Arc::new(Box::new(context_provider))));
     }
 
-    /// Returns a future that resolves when the Sdk is cancelled (eg. shutdown was requested).
-    pub fn cancelled(&self) -> WaitForCancellationFuture {
+    /// Returns a future that resolves when the Sdk is cancelled (e.g. shutdown was requested).
+    pub fn cancelled(&self) -> WaitForCancellationFuture<'_> {
         self.cancel_token.cancelled()
     }
 
@@ -587,7 +656,7 @@ impl Sdk {
 /// - `metadata`: Metadata of the received response
 /// - `now_ms`: Current local time in milliseconds
 /// - `tolerance_ms`: Tolerance in milliseconds
-fn verify_metadata_time(
+pub(crate) fn verify_metadata_time(
     metadata: &ResponseMetadata,
     now_ms: u64,
     tolerance_ms: u64,
@@ -596,12 +665,6 @@ fn verify_metadata_time(
 
     // metadata_time - tolerance_ms <= now_ms <= metadata_time + tolerance_ms
     if now_ms.abs_diff(metadata_time) > tolerance_ms {
-        tracing::warn!(
-            expected_time = now_ms,
-            received_time = metadata_time,
-            tolerance_ms,
-            "received response with stale time; you should retry with another server"
-        );
         return Err(StaleNodeError::Time {
             expected_timestamp_ms: now_ms,
             received_timestamp_ms: metadata_time,
@@ -642,12 +705,6 @@ fn verify_metadata_height(
 
     // If expected_height <= tolerance, then Sdk just started, so we just assume what we got is correct.
     if expected_height > tolerance && received_height < expected_height - tolerance {
-        tracing::warn!(
-            expected_height,
-            received_height,
-            tolerance,
-            "received message with stale height; you should retry with another server"
-        );
         return Err(StaleNodeError::Height {
             expected_height,
             received_height,
@@ -710,7 +767,7 @@ impl DapiRequestExecutor for Sdk {
 /// 2. Configure the builder with [`SdkBuilder::with_core()`]
 /// 3. Call [`SdkBuilder::build()`] to create the [Sdk] instance.
 pub struct SdkBuilder {
-    /// List of addressses to connect to.
+    /// List of addresses to connect to.
     ///
     /// If `None`, a mock client will be created.
     addresses: Option<AddressList>,
@@ -732,6 +789,10 @@ pub struct SdkBuilder {
     /// Cache size for data contracts. Used by mock [GrpcContextProvider].
     #[cfg(feature = "mocks")]
     data_contract_cache_size: NonZeroUsize,
+
+    /// Cache size for token configs. Used by mock [GrpcContextProvider].
+    #[cfg(feature = "mocks")]
+    token_config_cache_size: NonZeroUsize,
 
     /// Cache size for quorum public keys. Used by mock [GrpcContextProvider].
     #[cfg(feature = "mocks")]
@@ -781,7 +842,12 @@ impl Default for SdkBuilder {
 
             #[cfg(feature = "mocks")]
             data_contract_cache_size: NonZeroUsize::new(DEFAULT_CONTRACT_CACHE_SIZE)
-                .expect("data conttact cache size must be positive"),
+                .expect("data contract cache size must be positive"),
+
+            #[cfg(feature = "mocks")]
+            token_config_cache_size: NonZeroUsize::new(DEFAULT_TOKEN_CONFIG_CACHE_SIZE)
+                .expect("token config cache size must be positive"),
+
             #[cfg(feature = "mocks")]
             quorum_public_keys_cache_size: NonZeroUsize::new(DEFAULT_QUORUM_PUBLIC_KEYS_CACHE_SIZE)
                 .expect("quorum public keys cache size must be positive"),
@@ -801,6 +867,14 @@ impl Default for SdkBuilder {
 }
 
 impl SdkBuilder {
+    /// Enable or disable proofs on requests.
+    ///
+    /// In mock/offline testing with recorded vectors, set to false to match dumps
+    /// that were captured without proofs.
+    pub fn with_proofs(mut self, proofs: bool) -> Self {
+        self.proofs = proofs;
+        self
+    }
     /// Create a new SdkBuilder with provided address list.
     pub fn new(addresses: AddressList) -> Self {
         Self {
@@ -869,7 +943,7 @@ impl SdkBuilder {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn with_ca_certificate_file(
         self,
-        certificate_file_path: impl AsRef<std::path::Path>,
+        certificate_file_path: impl AsRef<Path>,
     ) -> std::io::Result<Self> {
         let pem = std::fs::read(certificate_file_path)?;
 
@@ -927,7 +1001,7 @@ impl SdkBuilder {
 
     /// Set cancellation token that will be used by the Sdk.
     ///
-    /// Once that cancellation token is cancelled, all pending requests shall teriminate.
+    /// Once that cancellation token is cancelled, all pending requests shall terminate.
     pub fn with_cancellation_token(mut self, cancel_token: CancellationToken) -> Self {
         self.cancel_token = cancel_token;
         self
@@ -993,7 +1067,7 @@ impl SdkBuilder {
     /// * retrieved data contracts - in files named `data_contract-*.json`
     ///
     /// These files can be used together with [MockDashPlatformSdk] to replay the requests and responses.
-    /// See [MockDashPlatformSdk::load_expectations()] for more information.
+    /// See [MockDashPlatformSdk::load_expectations_sync()] for more information.
     ///
     /// Available only when `mocks` feature is enabled.
     #[cfg(feature = "mocks")]
@@ -1039,14 +1113,14 @@ impl SdkBuilder {
                     context_provider: ArcSwapOption::new( self.context_provider.map(Arc::new)),
                     cancel_token: self.cancel_token,
                     internal_cache: Default::default(),
-                    // Note: in future, we need to securely initialize initial height during Sdk bootstrap or first request.
+                    // Note: in the future, we need to securely initialize initial height during Sdk bootstrap or first request.
                     metadata_last_seen_height: Arc::new(atomic::AtomicU64::new(0)),
                     metadata_height_tolerance: self.metadata_height_tolerance,
                     metadata_time_tolerance_ms: self.metadata_time_tolerance_ms,
                     #[cfg(feature = "mocks")]
                     dump_dir: self.dump_dir,
                 };
-                // if context provider is not set correctly (is None), it means we need to fallback to core wallet
+                // if context provider is not set correctly (is None), it means we need to fall back to core wallet
                 if  sdk.context_provider.load().is_none() {
                     #[cfg(feature = "mocks")]
                     if !self.core_ip.is_empty() {
@@ -1054,7 +1128,7 @@ impl SdkBuilder {
                             "ContextProvider not set, falling back to a mock one; use SdkBuilder::with_context_provider() to set it up");
                         let mut context_provider = GrpcContextProvider::new(None,
                             &self.core_ip, self.core_port, &self.core_user, &self.core_password,
-                            self.data_contract_cache_size, self.quorum_public_keys_cache_size)?;
+                            self.data_contract_cache_size, self.token_config_cache_size, self.quorum_public_keys_cache_size)?;
                         #[cfg(feature = "mocks")]
                         if sdk.dump_dir.is_some() {
                             context_provider.set_dump_dir(sdk.dump_dir.clone());
@@ -1082,7 +1156,7 @@ impl SdkBuilder {
             #[cfg(feature = "mocks")]
             // mock mode
             None => {
-                let dapi =Arc::new(tokio::sync::Mutex::new(  MockDapiClient::new()));
+                let dapi =Arc::new(Mutex::new(  MockDapiClient::new()));
                 // We create mock context provider that will use the mock DAPI client to retrieve data contracts.
                 let  context_provider = self.context_provider.unwrap_or_else(||{
                     let mut cp=MockContextProvider::new();
@@ -1106,13 +1180,13 @@ impl SdkBuilder {
                     dump_dir: self.dump_dir.clone(),
                     proofs:self.proofs,
                     internal_cache: Default::default(),
-                    context_provider:ArcSwapAny::new( Some(Arc::new(context_provider))),
+                    context_provider: ArcSwapOption::new(Some(Arc::new(context_provider))),
                     cancel_token: self.cancel_token,
                     metadata_last_seen_height: Arc::new(atomic::AtomicU64::new(0)),
                     metadata_height_tolerance: self.metadata_height_tolerance,
                     metadata_time_tolerance_ms: self.metadata_time_tolerance_ms,
                 };
-                let mut guard = mock_sdk.try_lock().expect("mock sdk is in use by another thread and connot be reconfigured");
+                let mut guard = mock_sdk.try_lock().expect("mock sdk is in use by another thread and cannot be reconfigured");
                 guard.set_sdk(sdk.clone());
                 if let Some(ref dump_dir) = self.dump_dir {
                     guard.load_expectations_sync(dump_dir)?;
@@ -1161,7 +1235,8 @@ pub fn prettify_proof(proof: &Proof) -> String {
 mod test {
     use std::sync::Arc;
 
-    use dapi_grpc::platform::v0::ResponseMetadata;
+    use dapi_grpc::platform::v0::{GetIdentityRequest, ResponseMetadata};
+    use rs_dapi_client::transport::TransportRequest;
     use test_case::test_matrix;
 
     use crate::SdkBuilder;
@@ -1179,8 +1254,7 @@ mod test {
             ..Default::default()
         };
 
-        let last_seen_height =
-            std::sync::Arc::new(std::sync::atomic::AtomicU64::new(expected_height));
+        let last_seen_height = Arc::new(std::sync::atomic::AtomicU64::new(expected_height));
 
         let result =
             super::verify_metadata_height(&metadata, tolerance, Arc::clone(&last_seen_height));
@@ -1207,7 +1281,9 @@ mod test {
             ..Default::default()
         };
 
-        sdk1.verify_response_metadata(&metadata)
+        // use dummy request type to satisfy generic parameter
+        let request = GetIdentityRequest::default();
+        sdk1.verify_response_metadata(request.method_name(), &metadata)
             .expect("metadata should be valid");
 
         assert_eq!(
@@ -1226,7 +1302,9 @@ mod test {
             height: 2,
             ..Default::default()
         };
-        sdk2.verify_response_metadata(&metadata)
+        // use dummy request type to satisfy generic parameter
+        let request = GetIdentityRequest::default();
+        sdk2.verify_response_metadata(request.method_name(), &metadata)
             .expect("metadata should be valid");
 
         assert_eq!(
@@ -1247,7 +1325,9 @@ mod test {
             height: 3,
             ..Default::default()
         };
-        sdk3.verify_response_metadata(&metadata)
+        // use dummy request type to satisfy generic parameter
+        let request = GetIdentityRequest::default();
+        sdk3.verify_response_metadata(request.method_name(), &metadata)
             .expect("metadata should be valid");
 
         assert_eq!(
@@ -1270,7 +1350,8 @@ mod test {
             ..Default::default()
         };
 
-        sdk1.verify_response_metadata(&metadata)
+        let request = GetIdentityRequest::default();
+        sdk1.verify_response_metadata(request.method_name(), &metadata)
             .expect_err("metadata should be invalid");
     }
 

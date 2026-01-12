@@ -28,7 +28,8 @@ pub enum PreferredKeyPurposeForSigningWithdrawal {
 
 pub trait IdentityCreditWithdrawalTransitionMethodsV0 {
     #[cfg(feature = "state-transition-signing")]
-    fn try_from_identity<S: Signer>(
+    #[allow(clippy::too_many_arguments)]
+    fn try_from_identity<S: Signer<IdentityPublicKey>>(
         identity: &Identity,
         output_script: Option<CoreScript>,
         amount: u64,

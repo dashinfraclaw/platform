@@ -4,6 +4,7 @@ use crate::data_contract::serialized_version::DataContractInSerializationFormat;
 use crate::data_contract::{DataContract, DataContractV1};
 use crate::version::{PlatformVersion, PlatformVersionCurrentVersion};
 use crate::ProtocolError;
+use std::collections::BTreeMap;
 
 use crate::data_contract::serialized_version::v1::DataContractInSerializationFormatV1;
 use crate::validation::operations::ProtocolValidationOperation;
@@ -26,8 +27,12 @@ impl<'de> Deserialize<'de> for DataContractV1 {
         D: Deserializer<'de>,
     {
         let serialization_format = DataContractInSerializationFormatV1::deserialize(deserializer)?;
-        let current_version =
-            PlatformVersion::get_current().map_err(|e| serde::de::Error::custom(e.to_string()))?;
+        let current_version = PlatformVersion::get_current().map_err(|e| {
+            serde::de::Error::custom(format!(
+                "expected to be able to get current platform version: {}",
+                e
+            ))
+        })?;
         // when deserializing from json/platform_value/cbor we always want to validate (as this is not coming from the state)
         DataContractV1::try_from_platform_versioned_v1(
             serialization_format,
@@ -87,8 +92,11 @@ impl DataContractV1 {
 
         let document_types = DocumentType::create_document_types_from_document_schemas(
             id,
+            1,
+            data_contract_data.config.version(),
             document_schemas,
             schema_defs.as_ref(),
+            &BTreeMap::new(),
             &config,
             full_validation,
             false,
@@ -111,6 +119,8 @@ impl DataContractV1 {
             updated_at_epoch: None,
             groups: Default::default(),
             tokens: Default::default(),
+            keywords: Default::default(),
+            description: None,
         };
 
         Ok(data_contract)
@@ -137,12 +147,17 @@ impl DataContractV1 {
             updated_at_epoch,
             groups,
             tokens,
+            keywords,
+            description,
         } = data_contract_data;
 
         let document_types = DocumentType::create_document_types_from_document_schemas(
             id,
+            1,
+            data_contract_data.config.version(),
             document_schemas,
             schema_defs.as_ref(),
+            &tokens,
             &config,
             full_validation,
             !tokens.is_empty(),
@@ -165,6 +180,11 @@ impl DataContractV1 {
             updated_at_epoch,
             groups,
             tokens,
+            keywords: keywords
+                .into_iter()
+                .map(|keyword| keyword.to_lowercase())
+                .collect(),
+            description,
         };
 
         Ok(data_contract)

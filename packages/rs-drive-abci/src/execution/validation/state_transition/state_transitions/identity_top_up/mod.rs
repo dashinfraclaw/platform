@@ -1,6 +1,8 @@
 pub(crate) mod identity_retrieval;
 mod structure;
 mod transform_into_action;
+
+use dpp::dashcore::Network;
 use dpp::state_transition::identity_topup_transition::IdentityTopUpTransition;
 use dpp::validation::{ConsensusValidationResult, SimpleConsensusValidationResult};
 use dpp::version::PlatformVersion;
@@ -17,10 +19,11 @@ use crate::rpc::core::CoreRPCLike;
 
 use crate::execution::validation::state_transition::identity_top_up::structure::v0::IdentityTopUpStateTransitionStructureValidationV0;
 use crate::execution::validation::state_transition::identity_top_up::transform_into_action::v0::IdentityTopUpStateTransitionStateValidationV0;
-use crate::execution::validation::state_transition::processor::v0::StateTransitionBasicStructureValidationV0;
+
+use crate::execution::validation::state_transition::processor::basic_structure::StateTransitionBasicStructureValidationV0;
 
 use crate::execution::validation::state_transition::ValidationMode;
-use crate::platform_types::platform_state::v0::PlatformStateV0Methods;
+use crate::platform_types::platform_state::PlatformStateV0Methods;
 
 /// A trait to transform into a top up action
 pub trait StateTransitionIdentityTopUpTransitionActionTransformer {
@@ -73,6 +76,7 @@ impl StateTransitionIdentityTopUpTransitionActionTransformer for IdentityTopUpTr
 impl StateTransitionBasicStructureValidationV0 for IdentityTopUpTransition {
     fn validate_basic_structure(
         &self,
+        _network_type: Network,
         platform_version: &PlatformVersion,
     ) -> Result<SimpleConsensusValidationResult, Error> {
         match platform_version
@@ -151,7 +155,7 @@ mod tests {
             )
             .expect("expected to get key pair");
 
-        signer.add_key(master_key.clone(), master_private_key.clone());
+        signer.add_identity_public_key(master_key.clone(), master_private_key);
 
         let (critical_public_key, private_key) =
             IdentityPublicKey::random_ecdsa_critical_level_authentication_key(
@@ -186,14 +190,14 @@ mod tests {
             )
             .expect("expected to add a new identity");
 
-        signer.add_key(critical_public_key.clone(), private_key.clone());
+        signer.add_identity_public_key(critical_public_key.clone(), private_key);
 
         let (_, pk) = ECDSA_SECP256K1
             .random_public_and_private_key_data(&mut rng, platform_version)
             .unwrap();
 
         let asset_lock_proof = instant_asset_lock_proof_fixture(
-            Some(PrivateKey::from_slice(pk.as_slice(), Network::Testnet).unwrap()),
+            Some(PrivateKey::from_byte_array(&pk, Network::Testnet).unwrap()),
             None,
         );
 
@@ -281,7 +285,7 @@ mod tests {
             )
             .expect("expected to get key pair");
 
-        signer.add_key(master_key.clone(), master_private_key.clone());
+        signer.add_identity_public_key(master_key.clone(), master_private_key);
 
         let (critical_public_key, private_key) =
             IdentityPublicKey::random_ecdsa_critical_level_authentication_key(
@@ -316,14 +320,14 @@ mod tests {
             )
             .expect("expected to add a new identity");
 
-        signer.add_key(critical_public_key.clone(), private_key.clone());
+        signer.add_identity_public_key(critical_public_key.clone(), private_key);
 
         let (_, pk) = ECDSA_SECP256K1
             .random_public_and_private_key_data(&mut rng, platform_version)
             .unwrap();
 
         let asset_lock_proof = instant_asset_lock_proof_fixture(
-            Some(PrivateKey::from_slice(pk.as_slice(), Network::Testnet).unwrap()),
+            Some(PrivateKey::from_byte_array(&pk, Network::Testnet).unwrap()),
             None,
         );
 

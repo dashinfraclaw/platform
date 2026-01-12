@@ -16,6 +16,7 @@ use grovedb::GroveDb;
 use platform_version::version::PlatformVersion;
 
 impl Drive {
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn verify_action_infos_in_contract_v0<T: FromIterator<(Identifier, GroupAction)>>(
         proof: &[u8],
         contract_id: Identifier,
@@ -56,7 +57,6 @@ impl Drive {
                     Some(Item(value, ..)) => {
                         let active_action = match GroupAction::deserialize_from_bytes(&value) {
                             Ok(active_action) => active_action,
-
                             Err(e) => return Some(Err(e.into())),
                         };
                         Some(Ok((action_id, active_action)))

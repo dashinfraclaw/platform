@@ -1,6 +1,6 @@
 use crate::data_contract::DataContract;
 use crate::identity::signer::Signer;
-use crate::identity::{KeyID, PartialIdentity};
+use crate::identity::{IdentityPublicKey, KeyID, PartialIdentity};
 
 use crate::prelude::{IdentityNonce, UserFeeIncrease};
 use crate::state_transition::StateTransition;
@@ -22,7 +22,8 @@ pub trait DataContractUpdateTransitionMethodsV0 {
     ///
     /// * `Result<Self, ProtocolError>` - If successful, returns an instance of `DataContractUpdateTransition`.
     ///   In case of any error, a relevant `ProtocolError` is returned.
-    fn new_from_data_contract<S: Signer>(
+    #[allow(clippy::too_many_arguments)]
+    fn new_from_data_contract<S: Signer<IdentityPublicKey>>(
         data_contract: DataContract,
         identity: &PartialIdentity,
         key_id: KeyID,

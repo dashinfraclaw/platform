@@ -1,7 +1,6 @@
 use dpp::block::epoch::Epoch;
 
 use dpp::validation::ValidationResult;
-use drive::error::Error::GroveDB;
 
 use dpp::version::PlatformVersion;
 use drive::grovedb::Transaction;
@@ -25,8 +24,8 @@ use crate::platform_types::block_proposal;
 use crate::platform_types::epoch_info::v0::{EpochInfoV0Getters, EpochInfoV0Methods};
 use crate::platform_types::epoch_info::EpochInfo;
 use crate::platform_types::platform::Platform;
-use crate::platform_types::platform_state::v0::PlatformStateV0Methods;
 use crate::platform_types::platform_state::PlatformState;
+use crate::platform_types::platform_state::PlatformStateV0Methods;
 use crate::platform_types::verify_chain_lock_result::v0::VerifyChainLockResult;
 use crate::rpc::core::CoreRPCLike;
 
@@ -58,6 +57,7 @@ where
     /// This function may return an `Error` variant if there is a problem with processing the block
     /// proposal, updating the core info, processing raw state transitions, or processing block fees.
     ///
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn run_block_proposal_v0(
         &self,
         block_proposal: block_proposal::v0::BlockProposal,
@@ -329,6 +329,21 @@ where
             timer,
         )?;
 
+        // Store the address balances to recent block storage
+        self.store_address_balances_to_recent_block_storage(
+            &state_transitions_result.address_balances_updated,
+            &block_info,
+            transaction,
+            platform_version,
+        )?;
+
+        // Clean up expired compacted address balance entries
+        self.cleanup_recent_block_storage_address_balances(
+            &block_info,
+            transaction,
+            platform_version,
+        )?;
+
         // Pool withdrawals into transactions queue
 
         // Takes queued withdrawals, creates untiled withdrawal transaction payload, saves them to queue
@@ -359,6 +374,7 @@ where
                 block_state_info: block_state_info.into(),
                 epoch_info,
                 unsigned_withdrawal_transactions: unsigned_withdrawal_transaction_bytes,
+                block_address_balance_changes: std::collections::BTreeMap::new(),
                 block_platform_state,
                 proposer_results: None,
             }
@@ -382,7 +398,7 @@ where
             .grove
             .root_hash(Some(transaction), &platform_version.drive.grove_version)
             .unwrap()
-            .map_err(|e| Error::Drive(GroveDB(e)))?; //GroveDb errors are system errors
+            .map_err(|e| Error::Drive(drive::error::Error::from(e)))?; //GroveDb errors are system errors
 
         block_execution_context
             .block_state_info_mut()

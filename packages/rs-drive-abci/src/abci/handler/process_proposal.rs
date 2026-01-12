@@ -9,7 +9,7 @@ use crate::execution::types::block_state_info::v0::{
     BlockStateInfoV0Getters, BlockStateInfoV0Setters,
 };
 use crate::platform_types::block_execution_outcome;
-use crate::platform_types::platform_state::v0::PlatformStateV0Methods;
+use crate::platform_types::platform_state::PlatformStateV0Methods;
 use crate::platform_types::state_transitions_processing_result::StateTransitionExecutionResult;
 use crate::rpc::core::CoreRPCLike;
 use dpp::dashcore::Network;
@@ -216,7 +216,7 @@ where
             // Better to restart the Drive, so we might self-heal the node
             // reloading state form the disk
             panic!(
-                "drive and platform state app hash mismatch: drive_storage_root_hash: {:?}, platform_state_app_hash: {:?}",
+                "drive and platform state app hash mismatch (process proposal): drive_storage_root_hash: {:?}, platform_state_app_hash: {:?}",
                 drive_storage_root_hash, platform_state_app_hash
             );
         }
@@ -307,8 +307,8 @@ where
         .filter(|execution_result| {
             matches!(
                 execution_result,
-                StateTransitionExecutionResult::SuccessfulExecution(..)
-                    | StateTransitionExecutionResult::PaidConsensusError(..)
+                StateTransitionExecutionResult::SuccessfulExecution { .. }
+                    | StateTransitionExecutionResult::PaidConsensusError { .. }
             )
         })
         .filter_map(|execution_result| {

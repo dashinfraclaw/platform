@@ -88,8 +88,8 @@ impl IdentityWasm {
     pub fn get_public_keys(&self) -> Vec<JsValue> {
         self.inner
             .public_keys()
-            .iter()
-            .map(|(_, k)| k.to_owned())
+            .values()
+            .cloned()
             .map(IdentityPublicKeyWasm::from)
             .map(JsValue::from)
             .collect()
@@ -136,7 +136,7 @@ impl IdentityWasm {
 
     #[wasm_bindgen(js_name=getRevision)]
     pub fn get_revision(&self) -> u64 {
-        self.inner.revision() as u64
+        self.inner.revision()
     }
 
     #[wasm_bindgen(js_name=setMetadata)]

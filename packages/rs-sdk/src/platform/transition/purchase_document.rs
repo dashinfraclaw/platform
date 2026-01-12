@@ -1,4 +1,5 @@
 use super::broadcast::BroadcastStateTransition;
+use super::validation::ensure_valid_state_transition_structure;
 use super::waitable::Waitable;
 use crate::platform::transition::put_settings::PutSettings;
 use crate::{Error, Sdk};
@@ -12,12 +13,14 @@ use dpp::prelude::Identifier;
 use dpp::state_transition::batch_transition::methods::v0::DocumentsBatchTransitionMethodsV0;
 use dpp::state_transition::batch_transition::BatchTransition;
 use dpp::state_transition::StateTransition;
+use dpp::tokens::token_payment_info::TokenPaymentInfo;
 
 #[async_trait::async_trait]
 /// A trait for purchasing a document on Platform
-pub trait PurchaseDocument<S: Signer>: Waitable {
+pub trait PurchaseDocument<S: Signer<IdentityPublicKey>>: Waitable {
     /// Tries to purchase a document on platform
     /// Setting settings to `None` sets default connection behavior
+    #[allow(clippy::too_many_arguments)]
     async fn purchase_document(
         &self,
         price: Credits,
@@ -25,11 +28,13 @@ pub trait PurchaseDocument<S: Signer>: Waitable {
         document_type: DocumentType,
         purchaser_id: Identifier,
         identity_public_key: IdentityPublicKey,
+        token_payment_info: Option<TokenPaymentInfo>,
         signer: &S,
         settings: Option<PutSettings>,
     ) -> Result<StateTransition, Error>;
 
     /// Tries to purchase a document on platform and waits for the response
+    #[allow(clippy::too_many_arguments)]
     async fn purchase_document_and_wait_for_response(
         &self,
         price: Credits,
@@ -37,13 +42,14 @@ pub trait PurchaseDocument<S: Signer>: Waitable {
         document_type: DocumentType,
         purchaser_id: Identifier,
         identity_public_key: IdentityPublicKey,
+        token_payment_info: Option<TokenPaymentInfo>,
         signer: &S,
         settings: Option<PutSettings>,
     ) -> Result<Document, Error>;
 }
 
 #[async_trait::async_trait]
-impl<S: Signer> PurchaseDocument<S> for Document {
+impl<S: Signer<IdentityPublicKey>> PurchaseDocument<S> for Document {
     async fn purchase_document(
         &self,
         price: Credits,
@@ -51,6 +57,7 @@ impl<S: Signer> PurchaseDocument<S> for Document {
         document_type: DocumentType,
         purchaser_id: Identifier,
         identity_public_key: IdentityPublicKey,
+        token_payment_info: Option<TokenPaymentInfo>,
         signer: &S,
         settings: Option<PutSettings>,
     ) -> Result<StateTransition, Error> {
@@ -73,12 +80,12 @@ impl<S: Signer> PurchaseDocument<S> for Document {
             &identity_public_key,
             new_identity_contract_nonce,
             settings.user_fee_increase.unwrap_or_default(),
+            token_payment_info,
             signer,
             sdk.version(),
-            None,
-            None,
-            None,
+            settings.state_transition_creation_options,
         )?;
+        ensure_valid_state_transition_structure(&transition, sdk.version())?;
 
         transition.broadcast(sdk, Some(settings)).await?;
         // response is empty for a broadcast, result comes from the stream wait for state transition result
@@ -92,6 +99,7 @@ impl<S: Signer> PurchaseDocument<S> for Document {
         document_type: DocumentType,
         purchaser_id: Identifier,
         identity_public_key: IdentityPublicKey,
+        token_payment_info: Option<TokenPaymentInfo>,
         signer: &S,
         settings: Option<PutSettings>,
     ) -> Result<Document, Error> {
@@ -102,6 +110,7 @@ impl<S: Signer> PurchaseDocument<S> for Document {
                 document_type,
                 purchaser_id,
                 identity_public_key,
+                token_payment_info,
                 signer,
                 settings,
             )

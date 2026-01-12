@@ -1,3 +1,5 @@
+mod load_current_checkpoints;
+
 use crate::cache::SystemDataContracts;
 use crate::cache::{DataContractCache, DriveCache, ProtocolVersionsCache};
 use crate::config::DriveConfig;
@@ -5,6 +7,7 @@ use crate::drive::Drive;
 use crate::error::Error;
 use dpp::errors::ProtocolError;
 use grovedb::GroveDb;
+use load_current_checkpoints::load_current_checkpoints;
 use platform_version::version::PlatformVersion;
 use std::path::Path;
 use std::sync::Arc;
@@ -19,7 +22,6 @@ impl Drive {
     ///
     /// * `path` - A reference that implements the `AsRef<Path>` trait. This represents the path to the GroveDB.
     /// * `config` - An `Option` which contains `DriveConfig`. If not specified, default configuration is used.
-    /// * `drive_version` - A `DriveVersion` reference that dictates which version of the method to call.
     ///
     /// # Returns
     ///
@@ -28,11 +30,11 @@ impl Drive {
     pub fn open<P: AsRef<Path>>(
         path: P,
         config: Option<DriveConfig>,
-        default_platform_version: Option<&PlatformVersion>,
     ) -> Result<(Self, Option<&'static PlatformVersion>), Error> {
         let config = config.unwrap_or_default();
+        let db_path = path.as_ref();
 
-        let grove = Arc::new(GroveDb::open(path)?);
+        let grove = Arc::new(GroveDb::open(db_path)?);
 
         #[cfg(feature = "grovedbg")]
         if config.grovedb_visualizer_enabled {
@@ -50,10 +52,8 @@ impl Drive {
             })
             .transpose()?;
 
-        // At this point we don't know the version what we need to process next block or initialize the chain
-        // so version related data should be updated on init chain or on block execution
-        let platform_version = maybe_platform_version
-            .unwrap_or_else(|| default_platform_version.unwrap_or(PlatformVersion::latest()));
+        // Load existing checkpoints from the checkpoints directory
+        let checkpoints = load_current_checkpoints(db_path)?;
 
         let drive = Drive {
             grove,
@@ -65,10 +65,9 @@ impl Drive {
                 ),
                 genesis_time_ms: parking_lot::RwLock::new(genesis_time_ms),
                 protocol_versions_counter: parking_lot::RwLock::new(ProtocolVersionsCache::new()),
-                system_data_contracts: SystemDataContracts::load_genesis_system_contracts(
-                    platform_version,
-                )?,
+                system_data_contracts: SystemDataContracts::load_genesis_system_contracts()?,
             },
+            checkpoints,
         };
 
         Ok((drive, maybe_platform_version))

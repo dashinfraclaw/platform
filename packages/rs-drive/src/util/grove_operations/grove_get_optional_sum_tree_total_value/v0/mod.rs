@@ -42,7 +42,7 @@ impl Drive {
                         )?)
                     }
                     _ => Err(Error::Drive(DriveError::CorruptedCodeExecution(
-                        "can not query a non tree",
+                        "can not query a non tree in grove_get_optional_sum_tree_total_value",
                     ))),
                 }?;
 
@@ -57,7 +57,7 @@ impl Drive {
                     &drive_version.grove_version,
                 );
                 drive_operations.push(CalculatedCostOperation(cost));
-                let Some(element) = value.map_err(Error::GroveDB)? else {
+                let Some(element) = value.map_err(Error::from)? else {
                     return Ok(None);
                 };
                 match element {

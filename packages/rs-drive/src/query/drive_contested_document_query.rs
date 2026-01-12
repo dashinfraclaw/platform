@@ -53,7 +53,7 @@ pub struct DriveContestedDocumentQuery<'a> {
     pub internal_clauses: PrimaryContestedInternalClauses,
 }
 
-impl<'a> DriveContestedDocumentQuery<'a> {
+impl DriveContestedDocumentQuery<'_> {
     #[cfg(any(feature = "server", feature = "verify"))]
     /// Returns a path query given a document type path and starting document.
     pub fn construct_path_query(
@@ -148,9 +148,16 @@ impl<'a> DriveContestedDocumentQuery<'a> {
             &platform_version.drive,
         );
         match query_result {
-            Err(Error::GroveDB(GroveError::PathKeyNotFound(_)))
-            | Err(Error::GroveDB(GroveError::PathNotFound(_)))
-            | Err(Error::GroveDB(GroveError::PathParentLayerNotFound(_))) => Ok((Vec::new(), 0)),
+            Err(Error::GroveDB(e))
+                if matches!(
+                    e.as_ref(),
+                    GroveError::PathKeyNotFound(_)
+                        | GroveError::PathNotFound(_)
+                        | GroveError::PathParentLayerNotFound(_)
+                ) =>
+            {
+                Ok((Vec::new(), 0))
+            }
             _ => {
                 let (data, skipped) = query_result?;
                 {

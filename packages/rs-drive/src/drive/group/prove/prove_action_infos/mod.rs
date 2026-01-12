@@ -23,7 +23,7 @@ impl Drive {
     /// - `group_contract_position`: The position of the group within the contract whose actions are to be proven.
     /// - `action_status`: The status of the group actions to prove.
     /// - `start_action_id`: An optional starting action ID, combined with a [`StartAtIncluded`] flag to specify whether
-    ///                      the start position is inclusive.
+    ///   the start position is inclusive.
     /// - `limit`: An optional limit on the number of actions to include in the proof.
     /// - `transaction`: The transaction context for the operation.
     /// - `platform_version`: A reference to the platform version, used to determine the appropriate versioned implementation.
@@ -35,6 +35,7 @@ impl Drive {
     /// # Errors
     /// - [`Error::Drive(DriveError::UnknownVersionMismatch)`]: If the method is called with an unsupported platform version.
     /// - Any other errors propagated from the versioned implementation.
+    #[allow(clippy::too_many_arguments)]
     pub fn prove_action_infos(
         &self,
         contract_id: Identifier,
@@ -81,7 +82,7 @@ impl Drive {
     /// - `group_contract_position`: The position of the group within the contract whose actions are to be proven.
     /// - `action_status`: The status of the group actions to prove.
     /// - `start_action_id`: An optional starting action ID, combined with a [`StartAtIncluded`] flag to specify whether
-    ///                      the start position is inclusive.
+    ///   the start position is inclusive.
     /// - `limit`: An optional limit on the number of actions to include in the proof.
     /// - `transaction`: The transaction context for the operation.
     /// - `drive_operations`: A mutable reference to a vector where additional low-level operations can be appended.
@@ -94,6 +95,9 @@ impl Drive {
     /// # Errors
     /// - [`Error::Drive(DriveError::UnknownVersionMismatch)`]: If the method is called with an unsupported platform version.
     /// - Any other errors propagated from the versioned implementation.
+    #[allow(clippy::too_many_arguments)]
+    // TODO: Is not using
+    #[allow(dead_code)]
     pub(crate) fn prove_action_infos_operations(
         &self,
         contract_id: Identifier,

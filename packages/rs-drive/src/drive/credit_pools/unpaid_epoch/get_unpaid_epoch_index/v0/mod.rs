@@ -25,7 +25,7 @@ impl Drive {
                 &platform_version.drive.grove_version,
             )
             .unwrap()
-            .map_err(Error::GroveDB)?;
+            .map_err(Error::from)?;
 
         let Element::Item(encoded_epoch_index, _) = element else {
             return Err(Error::Drive(DriveError::UnexpectedElementType(
@@ -57,14 +57,14 @@ mod tests {
         #[test]
         fn test_error_if_fee_pools_tree_is_not_initiated() {
             let platform_version = PlatformVersion::latest();
-            let drive = setup_drive(None, None);
+            let drive = setup_drive(None);
             let transaction = drive.grove.start_transaction();
 
             let result = drive.get_unpaid_epoch_index_v0(Some(&transaction), platform_version);
 
             assert!(matches!(
                 result,
-                Err(Error::GroveDB(grovedb::Error::PathParentLayerNotFound(_)))
+                Err(Error::GroveDB(e)) if matches!(e.as_ref(), grovedb::Error::PathParentLayerNotFound(_))
             ));
         }
 

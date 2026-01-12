@@ -1,17 +1,21 @@
 use super::MockDashPlatformSdk;
 use dpp::balances::total_single_token_balance::TotalSingleTokenBalance;
 use dpp::bincode::config::standard;
+use dpp::address_funds::PlatformAddress;
+use dpp::data_contract::associated_token::token_perpetual_distribution::reward_distribution_moment::RewardDistributionMoment;
 use dpp::data_contract::group::Group;
 use dpp::group::group_action::GroupAction;
+use dpp::tokens::contract_info::TokenContractInfo;
 use dpp::tokens::info::IdentityTokenInfo;
 use dpp::tokens::status::TokenStatus;
+use dpp::tokens::token_pricing_schedule::TokenPricingSchedule;
 use dpp::{
     bincode,
-    block::extended_epoch_info::ExtendedEpochInfo,
+    block::{extended_epoch_info::ExtendedEpochInfo, finalized_epoch_info::FinalizedEpochInfo},
     dashcore::{hashes::Hash as CoreHash, ProTxHash},
     document::{serialization_traits::DocumentCborMethodsV0, Document},
     identifier::Identifier,
-    identity::IdentityPublicKey,
+    identity::{identities_contract_keys::IdentitiesContractKeys, IdentityPublicKey},
     platform_serialization::{platform_encode_to_vec, platform_versioned_decode_from_slice},
     prelude::{DataContract, Identity},
     serialization::{
@@ -28,11 +32,13 @@ use drive_proof_verifier::types::identity_token_balance::{
 };
 use drive_proof_verifier::types::token_info::{IdentitiesTokenInfos, IdentityTokenInfos};
 use drive_proof_verifier::types::token_status::TokenStatuses;
+use drive::grovedb::GroveTrunkQueryResult;
 use drive_proof_verifier::types::{
-    Contenders, ContestedResources, CurrentQuorumsInfo, ElementFetchRequestItem,
-    IdentityBalanceAndRevision, IndexMap, MasternodeProtocolVote, PrefundedSpecializedBalance,
-    ProposerBlockCounts, RetrievedValues, TotalCreditsInPlatform, VotePollsGroupedByTimestamp,
-    Voters,
+    AddressInfo, Contenders, ContestedResources, CurrentQuorumsInfo, ElementFetchRequestItem,
+    IdentityBalanceAndRevision, IndexMap, MasternodeProtocolVote, PlatformAddressTrunkState,
+    PrefundedSpecializedBalance, ProposerBlockCounts, RecentAddressBalanceChanges,
+    RecentCompactedAddressBalanceChanges, RetrievedValues, TotalCreditsInPlatform,
+    VotePollsGroupedByTimestamp, Voters,
 };
 use std::{collections::BTreeMap, hash::Hash};
 
@@ -184,6 +190,24 @@ impl MockResponse for DataContract {
         Self: Sized,
     {
         DataContract::versioned_deserialize(buf, true, sdk.version()).expect("decode data")
+    }
+}
+
+// FIXME: Seems that DataContract doesn't implement PlatformVersionedDecode + PlatformVersionEncode,
+// so we just use some methods implemented directly on these objects.
+impl MockResponse for (DataContract, Vec<u8>) {
+    fn mock_serialize(&self, _sdk: &MockDashPlatformSdk) -> Vec<u8> {
+        self.1.clone()
+    }
+
+    fn mock_deserialize(sdk: &MockDashPlatformSdk, buf: &[u8]) -> Self
+    where
+        Self: Sized,
+    {
+        (
+            DataContract::versioned_deserialize(buf, true, sdk.version()).expect("decode data"),
+            buf.to_vec(),
+        )
     }
 }
 
@@ -385,6 +409,21 @@ impl MockResponse for TokenStatuses {
     }
 }
 
+impl MockResponse for TokenContractInfo {
+    fn mock_serialize(&self, sdk: &MockDashPlatformSdk) -> Vec<u8> {
+        platform_encode_to_vec(self, BINCODE_CONFIG, sdk.version())
+            .expect("encode TokenContractInfo")
+    }
+
+    fn mock_deserialize(sdk: &MockDashPlatformSdk, buf: &[u8]) -> Self
+    where
+        Self: Sized,
+    {
+        platform_versioned_decode_from_slice(buf, BINCODE_CONFIG, sdk.version())
+            .expect("decode TokenContractInfo")
+    }
+}
+
 impl MockResponse for TotalSingleTokenBalance {
     fn mock_serialize(&self, _sdk: &MockDashPlatformSdk) -> Vec<u8> {
         bincode::encode_to_vec(self, BINCODE_CONFIG).expect("encode vec of data")
@@ -424,6 +463,21 @@ impl MockResponse for GroupActions {
     }
 }
 
+impl MockResponse for IdentitiesContractKeys {
+    fn mock_serialize(&self, _sdk: &MockDashPlatformSdk) -> Vec<u8> {
+        bincode::encode_to_vec(self, BINCODE_CONFIG).expect("encode IdentitiesContractKeys")
+    }
+
+    fn mock_deserialize(_sdk: &MockDashPlatformSdk, buf: &[u8]) -> Self
+    where
+        Self: Sized,
+    {
+        bincode::decode_from_slice(buf, BINCODE_CONFIG)
+            .expect("decode IdentitiesContractKeys")
+            .0
+    }
+}
+
 impl_mock_response!(Identity);
 impl_mock_response!(IdentityPublicKey);
 impl_mock_response!(Identifier);
@@ -435,6 +489,7 @@ impl_mock_response!(u32);
 impl_mock_response!(u64);
 impl_mock_response!(Vote);
 impl_mock_response!(ExtendedEpochInfo);
+impl_mock_response!(FinalizedEpochInfo);
 impl_mock_response!(ContestedResources);
 impl_mock_response!(IdentityBalanceAndRevision);
 impl_mock_response!(Contenders);
@@ -446,3 +501,39 @@ impl_mock_response!(ElementFetchRequestItem);
 impl_mock_response!(EvoNodeStatus);
 impl_mock_response!(CurrentQuorumsInfo);
 impl_mock_response!(Group);
+impl_mock_response!(TokenPricingSchedule);
+impl_mock_response!(RewardDistributionMoment);
+impl_mock_response!(PlatformAddress);
+impl_mock_response!(AddressInfo);
+impl_mock_response!(RecentAddressBalanceChanges);
+impl_mock_response!(RecentCompactedAddressBalanceChanges);
+
+/// MockResponse for GroveTrunkQueryResult - panics when called because the Tree type
+/// doesn't support serialization. Address sync operations should not be mocked.
+impl MockResponse for GroveTrunkQueryResult {
+    fn mock_serialize(&self, _sdk: &MockDashPlatformSdk) -> Vec<u8> {
+        unimplemented!("GroveTrunkQueryResult does not support mock serialization - the Tree type is not serializable")
+    }
+
+    fn mock_deserialize(_sdk: &MockDashPlatformSdk, _buf: &[u8]) -> Self
+    where
+        Self: Sized,
+    {
+        unimplemented!("GroveTrunkQueryResult does not support mock deserialization - the Tree type is not serializable")
+    }
+}
+
+/// MockResponse for PlatformAddressTrunkState - panics when called because the underlying
+/// Tree type doesn't support serialization. Address sync operations should not be mocked.
+impl MockResponse for PlatformAddressTrunkState {
+    fn mock_serialize(&self, _sdk: &MockDashPlatformSdk) -> Vec<u8> {
+        unimplemented!("PlatformAddressTrunkState does not support mock serialization - the Tree type is not serializable")
+    }
+
+    fn mock_deserialize(_sdk: &MockDashPlatformSdk, _buf: &[u8]) -> Self
+    where
+        Self: Sized,
+    {
+        unimplemented!("PlatformAddressTrunkState does not support mock deserialization - the Tree type is not serializable")
+    }
+}

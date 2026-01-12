@@ -7,6 +7,7 @@ use dpp::identity::{Identity, IdentityPublicKey};
 
 use crate::platform::transition::broadcast::BroadcastStateTransition;
 use crate::platform::transition::put_settings::PutSettings;
+use crate::platform::transition::validation::ensure_valid_state_transition_structure;
 use crate::{Error, Sdk};
 use dpp::state_transition::identity_credit_withdrawal_transition::methods::{
     IdentityCreditWithdrawalTransitionMethodsV0, PreferredKeyPurposeForSigningWithdrawal,
@@ -20,7 +21,8 @@ pub trait WithdrawFromIdentity {
     /// Function to withdraw credits from an identity. Returns the final identity balance.
     /// If signing_withdrawal_key_to_use is not set, we will try to use one in the signer that is
     /// available for withdrawal
-    async fn withdraw<S: Signer + Send>(
+    #[allow(clippy::too_many_arguments)]
+    async fn withdraw<S: Signer<IdentityPublicKey> + Send>(
         &self,
         sdk: &Sdk,
         address: Option<Address>,
@@ -34,7 +36,7 @@ pub trait WithdrawFromIdentity {
 
 #[async_trait::async_trait]
 impl WithdrawFromIdentity for Identity {
-    async fn withdraw<S: Signer + Send>(
+    async fn withdraw<S: Signer<IdentityPublicKey> + Send>(
         &self,
         sdk: &Sdk,
         address: Option<Address>,
@@ -61,16 +63,17 @@ impl WithdrawFromIdentity for Identity {
             sdk.version(),
             None,
         )?;
+        ensure_valid_state_transition_structure(&state_transition, sdk.version())?;
 
         let result = state_transition.broadcast_and_wait(sdk, settings).await?;
 
         match result {
             StateTransitionProofResult::VerifiedPartialIdentity(identity) => {
-                identity.balance.ok_or(Error::DapiClientError(
+                identity.balance.ok_or(Error::Generic(
                     "expected an identity balance after withdrawal".to_string(),
                 ))
             }
-            _ => Err(Error::DapiClientError("proved a non identity".to_string())),
+            _ => Err(Error::Generic("proved a non identity".to_string())),
         }
     }
 }

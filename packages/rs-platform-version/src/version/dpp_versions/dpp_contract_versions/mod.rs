@@ -1,6 +1,7 @@
 use versioned_feature_core::{FeatureVersion, FeatureVersionBounds};
 pub mod v1;
 pub mod v2;
+pub mod v3;
 
 #[derive(Clone, Debug, Default)]
 pub struct DPPContractVersions {
@@ -13,9 +14,10 @@ pub struct DPPContractVersions {
     /// This is the structure of the Contract as it is defined for code paths
     pub contract_structure_version: FeatureVersion,
     pub created_data_contract_structure: FeatureVersion,
-    pub config: FeatureVersion,
+    pub config: FeatureVersionBounds,
     pub methods: DataContractMethodVersions,
     pub document_type_versions: DocumentTypeVersions,
+    pub token_versions: TokenVersions,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -25,6 +27,7 @@ pub struct DataContractMethodVersions {
     pub schema: FeatureVersion,
     pub validate_groups: FeatureVersion,
     pub equal_ignoring_time_fields: FeatureVersion,
+    pub registration_cost: FeatureVersion,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -49,6 +52,11 @@ pub struct DocumentTypeVersions {
 }
 
 #[derive(Clone, Debug, Default)]
+pub struct TokenVersions {
+    pub validate_structure_interval: FeatureVersion,
+}
+
+#[derive(Clone, Debug, Default)]
 pub struct DocumentTypeMethodVersions {
     pub create_document_from_data: FeatureVersion,
     pub create_document_with_prevalidated_properties: FeatureVersion,
@@ -63,6 +71,7 @@ pub struct DocumentTypeMethodVersions {
 
 #[derive(Clone, Debug, Default)]
 pub struct DocumentTypeSchemaVersions {
+    pub should_add_creator_id: FeatureVersion,
     pub enrich_with_base_schema: FeatureVersion,
     pub find_identifier_and_binary_paths: FeatureVersion,
     pub validate_max_depth: FeatureVersion,

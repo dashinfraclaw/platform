@@ -4,10 +4,14 @@ mod nonce;
 mod state;
 mod transform_into_action;
 
+use dpp::address_funds::PlatformAddress;
 use dpp::block::block_info::BlockInfo;
+use dpp::fee::Credits;
+use dpp::prelude::AddressNonce;
 use dpp::state_transition::masternode_vote_transition::MasternodeVoteTransition;
 use dpp::validation::ConsensusValidationResult;
 use drive::state_transition_action::StateTransitionAction;
+use std::collections::BTreeMap;
 
 use drive::grovedb::TransactionArg;
 
@@ -19,16 +23,19 @@ use crate::rpc::core::CoreRPCLike;
 
 use crate::execution::validation::state_transition::masternode_vote::state::v0::MasternodeVoteStateTransitionStateValidationV0;
 use crate::execution::validation::state_transition::masternode_vote::transform_into_action::v0::MasternodeVoteStateTransitionTransformIntoActionValidationV0;
-use crate::execution::validation::state_transition::processor::v0::StateTransitionStateValidationV0;
-use crate::execution::validation::state_transition::transformer::StateTransitionActionTransformerV0;
+use crate::execution::validation::state_transition::processor::state::StateTransitionStateValidation;
+use crate::execution::validation::state_transition::transformer::StateTransitionActionTransformer;
 use crate::execution::validation::state_transition::ValidationMode;
-use crate::platform_types::platform_state::v0::PlatformStateV0Methods;
+use crate::platform_types::platform_state::PlatformStateV0Methods;
 
-impl StateTransitionActionTransformerV0 for MasternodeVoteTransition {
+impl StateTransitionActionTransformer for MasternodeVoteTransition {
     fn transform_into_action<C: CoreRPCLike>(
         &self,
         platform: &PlatformRef<C>,
         _block_info: &BlockInfo,
+        _remaining_address_input_balances: &Option<
+            BTreeMap<PlatformAddress, (AddressNonce, Credits)>,
+        >,
         validation_mode: ValidationMode,
         _execution_context: &mut StateTransitionExecutionContext,
         tx: TransactionArg,
@@ -53,7 +60,7 @@ impl StateTransitionActionTransformerV0 for MasternodeVoteTransition {
     }
 }
 
-impl StateTransitionStateValidationV0 for MasternodeVoteTransition {
+impl StateTransitionStateValidation for MasternodeVoteTransition {
     fn validate_state<C: CoreRPCLike>(
         &self,
         action: Option<StateTransitionAction>,
@@ -78,6 +85,10 @@ impl StateTransitionStateValidationV0 for MasternodeVoteTransition {
                 received: version,
             })),
         }
+    }
+
+    fn validates_full_state_on_check_tx(&self) -> bool {
+        true
     }
 }
 
@@ -112,7 +123,7 @@ mod tests {
     use crate::test::helpers::setup::TempPlatform;
     use dpp::serialization::PlatformDeserializable;
     use drive::query::VotePollsByEndDateDriveQuery;
-    use crate::platform_types::platform_state::v0::PlatformStateV0Methods;
+    use crate::platform_types::platform_state::PlatformStateV0Methods;
     use dpp::block::extended_block_info::v0::ExtendedBlockInfoV0;
     use dpp::platform_value::IdentifierBytes32;
     use dpp::platform_value::Value::Text;
@@ -2881,7 +2892,7 @@ mod tests {
                                 ),
                             ),
                         },
-                        &platform_state,
+                        platform_state,
                         platform_version,
                     )
                     .expect("expected to execute query")
@@ -2971,7 +2982,7 @@ mod tests {
                                 ),
                             ),
                         },
-                        &platform_state,
+                        platform_state,
                         platform_version,
                     )
                     .expect("expected to execute query")
@@ -2995,9 +3006,7 @@ mod tests {
                 let resolved_contested_document_vote_poll_drive_query =
                     ResolvedContestedDocumentVotePollVotesDriveQuery {
                         vote_poll: ContestedDocumentResourceVotePollWithContractInfoAllowBorrowed {
-                            contract: DataContractResolvedInfo::BorrowedDataContract(
-                                &dpns_contract,
-                            ),
+                            contract: DataContractResolvedInfo::BorrowedDataContract(dpns_contract),
                             document_type_name: domain.name().clone(),
                             index_name: index_name.clone(),
                             index_values: vec![
@@ -6894,7 +6903,7 @@ mod tests {
                             );
 
                         // Now check that exactly one of the 'finished_vote_info's is None, and the other two are Some(_)
-                        let finished_vote_infos = vec![
+                        let finished_vote_infos = [
                             finished_vote_info1.is_some(),
                             finished_vote_info2.is_some(),
                             finished_vote_info3.is_some(),
@@ -9787,9 +9796,8 @@ mod tests {
 
                     assert_matches!(
                         query_validation_result,
-                        Err(Error::Drive(drive::error::Error::GroveDB(
-                            drive::grovedb::Error::CorruptedReferencePathKeyNotFound(_)
-                        )))
+                        Err(Error::Drive(drive::error::Error::GroveDB(e)))
+                            if matches!(e.as_ref(), drive::grovedb::Error::CorruptedReferencePathKeyNotFound(_))
                     )
                 }
 
@@ -10566,9 +10574,8 @@ mod tests {
 
                     assert_matches!(
                         query_validation_result,
-                        Err(Error::Drive(drive::error::Error::GroveDB(
-                            drive::grovedb::Error::CorruptedReferencePathKeyNotFound(_)
-                        )))
+                        Err(Error::Drive(drive::error::Error::GroveDB(e)))
+                            if matches!(e.as_ref(), drive::grovedb::Error::CorruptedReferencePathKeyNotFound(_))
                     )
                 }
 

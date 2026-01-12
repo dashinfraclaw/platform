@@ -203,7 +203,7 @@ pub fn setup_family_tests(
 ) -> (Drive, DataContract) {
     let drive_config = DriveConfig::default();
 
-    let drive = setup_drive(Some(drive_config), None);
+    let drive = setup_drive(Some(drive_config));
 
     let db_transaction = drive.grove.start_transaction();
 
@@ -349,7 +349,7 @@ pub fn setup_countable_family_tests(
 pub fn setup_family_tests_with_nulls(count: u32, seed: u64) -> (Drive, DataContract) {
     let drive_config = DriveConfig::default();
 
-    let drive = setup_drive(Some(drive_config), None);
+    let drive = setup_drive(Some(drive_config));
 
     let db_transaction = drive.grove.start_transaction();
 
@@ -421,7 +421,7 @@ pub fn setup_family_tests_with_nulls(count: u32, seed: u64) -> (Drive, DataContr
 pub fn setup_family_tests_only_first_name_index(count: u32, seed: u64) -> (Drive, DataContract) {
     let drive_config = DriveConfig::default();
 
-    let drive = setup_drive(Some(drive_config), None);
+    let drive = setup_drive(Some(drive_config));
 
     let db_transaction = drive.grove.start_transaction();
 
@@ -570,6 +570,7 @@ fn test_serialization_and_deserialization() {
         let serialized = <Document as DocumentPlatformConversionMethodsV0>::serialize(
             &document,
             document_type,
+            &contract,
             platform_version,
         )
         .expect("should serialize");
@@ -619,6 +620,7 @@ fn test_serialization_and_deserialization_with_null_values_should_fail_if_requir
     <Document as DocumentPlatformConversionMethodsV0>::serialize(
         &document,
         document_type,
+        &contract,
         platform_version,
     )
     .expect_err("expected to not be able to serialize domain document");
@@ -666,9 +668,13 @@ fn test_serialization_and_deserialization_with_null_values() {
     let mut document =
         Document::from_platform_value(value, platform_version).expect("expected value");
     document.set_revision(Some(1));
-    let serialized =
-        DocumentPlatformConversionMethodsV0::serialize(&document, document_type, platform_version)
-            .expect("expected to be able to serialize domain document");
+    let serialized = DocumentPlatformConversionMethodsV0::serialize(
+        &document,
+        document_type,
+        &contract,
+        platform_version,
+    )
+    .expect("expected to be able to serialize domain document");
 
     Document::from_bytes(&serialized, document_type, platform_version)
         .expect("expected to deserialize domain document");
@@ -705,7 +711,7 @@ impl Domain {
             let label = first_names.choose(&mut rng).unwrap();
             let domain = Domain {
                 id: Identifier::random_with_rng(&mut rng),
-                owner_id: if let Some(_) = total_owners {
+                owner_id: if total_owners.is_some() {
                     // Pick a random owner from the owners list
                     *owners.choose(&mut rng).unwrap()
                 } else {
@@ -891,7 +897,7 @@ pub fn setup_dpns_tests_with_batches(
     seed: u64,
     platform_version: &PlatformVersion,
 ) -> (Drive, DataContract) {
-    let drive = setup_drive(Some(DriveConfig::default()), None);
+    let drive = setup_drive(Some(DriveConfig::default()));
 
     let db_transaction = drive.grove.start_transaction();
 
@@ -939,7 +945,7 @@ pub fn setup_withdrawal_tests(
     total_owners: Option<u32>,
     seed: u64,
 ) -> (Drive, DataContract) {
-    let drive = setup_drive(Some(DriveConfig::default()), None);
+    let drive = setup_drive(Some(DriveConfig::default()));
 
     let db_transaction = drive.grove.start_transaction();
 
@@ -987,7 +993,7 @@ pub fn setup_withdrawal_tests(
 #[cfg(feature = "server")]
 /// Sets up the References contract to test queries on.
 pub fn setup_references_tests(_count: u32, _seed: u64) -> (Drive, DataContract) {
-    let drive = setup_drive(Some(DriveConfig::default()), None);
+    let drive = setup_drive(Some(DriveConfig::default()));
 
     let db_transaction = drive.grove.start_transaction();
 
@@ -1025,7 +1031,7 @@ pub fn setup_references_tests(_count: u32, _seed: u64) -> (Drive, DataContract) 
 #[cfg(feature = "server")]
 /// Sets up and inserts random domain name data to the DPNS contract to test queries on.
 pub fn setup_dpns_tests_label_not_required(count: u32, seed: u64) -> (Drive, DataContract) {
-    let drive = setup_drive(Some(DriveConfig::default()), None);
+    let drive = setup_drive(Some(DriveConfig::default()));
 
     let db_transaction = drive.grove.start_transaction();
 
@@ -1064,7 +1070,7 @@ pub fn setup_dpns_tests_label_not_required(count: u32, seed: u64) -> (Drive, Dat
 #[cfg(feature = "server")]
 /// Sets up the DPNS contract and inserts data from the given path to test queries on.
 pub fn setup_dpns_test_with_data(path: &str) -> (Drive, DataContract) {
-    let drive = setup_drive(None, None);
+    let drive = setup_drive(None);
 
     let db_transaction = drive.grove.start_transaction();
 
@@ -2584,8 +2590,8 @@ mod tests {
             .expect("there is always a root hash");
 
         let expected_app_hash = vec![
-            54, 6, 179, 188, 181, 97, 161, 198, 92, 12, 185, 60, 151, 219, 115, 50, 51, 248, 81,
-            106, 10, 89, 183, 126, 179, 14, 72, 251, 234, 175, 4, 161,
+            53, 9, 163, 92, 116, 134, 17, 186, 21, 68, 156, 162, 47, 181, 214, 162, 253, 4, 246, 8,
+            41, 187, 151, 152, 216, 164, 206, 110, 230, 176, 124, 225,
         ];
 
         assert_eq!(root_hash.as_slice(), expected_app_hash);
@@ -3898,8 +3904,8 @@ mod tests {
         assert_eq!(
             root_hash.as_slice(),
             vec![
-                210, 86, 49, 150, 167, 157, 51, 144, 168, 56, 23, 102, 241, 71, 99, 154, 100, 242,
-                18, 114, 80, 148, 15, 143, 54, 73, 38, 185, 167, 199, 99, 136
+                144, 154, 147, 246, 236, 57, 41, 67, 21, 26, 212, 158, 68, 159, 206, 26, 158, 50,
+                252, 62, 143, 176, 149, 50, 19, 226, 239, 65, 112, 243, 225, 64
             ],
         );
     }
@@ -4049,8 +4055,8 @@ mod tests {
             .expect("there is always a root hash");
 
         let expected_app_hash = vec![
-            54, 6, 179, 188, 181, 97, 161, 198, 92, 12, 185, 60, 151, 219, 115, 50, 51, 248, 81,
-            106, 10, 89, 183, 126, 179, 14, 72, 251, 234, 175, 4, 161,
+            53, 9, 163, 92, 116, 134, 17, 186, 21, 68, 156, 162, 47, 181, 214, 162, 253, 4, 246, 8,
+            41, 187, 151, 152, 216, 164, 206, 110, 230, 176, 124, 225,
         ];
 
         assert_eq!(root_hash.as_slice(), expected_app_hash);
@@ -4501,8 +4507,8 @@ mod tests {
             .expect("there is always a root hash");
 
         let expected_app_hash = vec![
-            40, 208, 218, 141, 51, 7, 57, 5, 17, 42, 78, 70, 239, 65, 98, 146, 20, 42, 68, 135,
-            241, 126, 28, 204, 213, 7, 128, 14, 31, 163, 15, 2,
+            75, 38, 164, 96, 117, 46, 13, 23, 183, 41, 83, 163, 112, 55, 172, 37, 186, 36, 223, 39,
+            106, 201, 46, 222, 167, 79, 236, 122, 12, 210, 29, 123,
         ];
 
         assert_eq!(root_hash.as_slice(), expected_app_hash);
@@ -4624,8 +4630,8 @@ mod tests {
 
         // Make sure the state is deterministic
         let expected_app_hash = vec![
-            54, 6, 179, 188, 181, 97, 161, 198, 92, 12, 185, 60, 151, 219, 115, 50, 51, 248, 81,
-            106, 10, 89, 183, 126, 179, 14, 72, 251, 234, 175, 4, 161,
+            53, 9, 163, 92, 116, 134, 17, 186, 21, 68, 156, 162, 47, 181, 214, 162, 253, 4, 246, 8,
+            41, 187, 151, 152, 216, 164, 206, 110, 230, 176, 124, 225,
         ];
 
         assert_eq!(root_hash.as_slice(), expected_app_hash);
@@ -4760,7 +4766,7 @@ mod tests {
     #[test]
     fn test_dpns_query_first_version() {
         let platform_version = PlatformVersion::first();
-        let (drive, contract) = setup_dpns_tests_with_batches(10, None, 11456, &platform_version);
+        let (drive, contract) = setup_dpns_tests_with_batches(10, None, 11456, platform_version);
 
         let db_transaction = drive.grove.start_transaction();
 
@@ -5422,8 +5428,8 @@ mod tests {
             .expect("there is always a root hash");
 
         let expected_app_hash = vec![
-            89, 134, 179, 83, 10, 119, 219, 251, 215, 151, 38, 111, 63, 245, 250, 229, 201, 136,
-            190, 129, 75, 226, 88, 216, 93, 69, 152, 224, 156, 93, 170, 125,
+            235, 23, 161, 209, 153, 68, 160, 57, 151, 170, 19, 99, 64, 48, 5, 114, 233, 154, 77,
+            65, 104, 102, 128, 181, 159, 124, 54, 108, 229, 88, 185, 134,
         ];
 
         assert_eq!(root_hash.as_slice(), expected_app_hash,);
@@ -5518,8 +5524,8 @@ mod tests {
             .expect("there is always a root hash");
 
         let expected_app_hash = vec![
-            89, 134, 179, 83, 10, 119, 219, 251, 215, 151, 38, 111, 63, 245, 250, 229, 201, 136,
-            190, 129, 75, 226, 88, 216, 93, 69, 152, 224, 156, 93, 170, 125,
+            235, 23, 161, 209, 153, 68, 160, 57, 151, 170, 19, 99, 64, 48, 5, 114, 233, 154, 77,
+            65, 104, 102, 128, 181, 159, 124, 54, 108, 229, 88, 185, 134,
         ];
 
         assert_eq!(root_hash.as_slice(), expected_app_hash);
@@ -5614,8 +5620,8 @@ mod tests {
             .expect("there is always a root hash");
 
         let expected_app_hash = vec![
-            89, 134, 179, 83, 10, 119, 219, 251, 215, 151, 38, 111, 63, 245, 250, 229, 201, 136,
-            190, 129, 75, 226, 88, 216, 93, 69, 152, 224, 156, 93, 170, 125,
+            235, 23, 161, 209, 153, 68, 160, 57, 151, 170, 19, 99, 64, 48, 5, 114, 233, 154, 77,
+            65, 104, 102, 128, 181, 159, 124, 54, 108, 229, 88, 185, 134,
         ];
 
         assert_eq!(root_hash.as_slice(), expected_app_hash);
@@ -5710,8 +5716,8 @@ mod tests {
             .expect("there is always a root hash");
 
         let expected_app_hash = vec![
-            89, 134, 179, 83, 10, 119, 219, 251, 215, 151, 38, 111, 63, 245, 250, 229, 201, 136,
-            190, 129, 75, 226, 88, 216, 93, 69, 152, 224, 156, 93, 170, 125,
+            235, 23, 161, 209, 153, 68, 160, 57, 151, 170, 19, 99, 64, 48, 5, 114, 233, 154, 77,
+            65, 104, 102, 128, 181, 159, 124, 54, 108, 229, 88, 185, 134,
         ];
 
         assert_eq!(root_hash.as_slice(), expected_app_hash);
@@ -5906,8 +5912,8 @@ mod tests {
             .expect("there is always a root hash");
 
         let expected_app_hash = vec![
-            236, 213, 202, 143, 111, 54, 250, 174, 57, 239, 156, 18, 122, 223, 88, 20, 13, 180, 89,
-            144, 31, 20, 138, 189, 2, 148, 160, 95, 231, 108, 216, 163,
+            233, 90, 110, 8, 43, 137, 139, 242, 8, 152, 175, 246, 177, 73, 49, 137, 61, 142, 2, 49,
+            158, 134, 13, 222, 60, 223, 139, 41, 66, 131, 135, 38,
         ];
 
         assert_eq!(root_hash.as_slice(), expected_app_hash);
@@ -6113,8 +6119,8 @@ mod tests {
             .expect("there is always a root hash");
 
         let expected_app_hash = vec![
-            236, 213, 202, 143, 111, 54, 250, 174, 57, 239, 156, 18, 122, 223, 88, 20, 13, 180, 89,
-            144, 31, 20, 138, 189, 2, 148, 160, 95, 231, 108, 216, 163,
+            233, 90, 110, 8, 43, 137, 139, 242, 8, 152, 175, 246, 177, 73, 49, 137, 61, 142, 2, 49,
+            158, 134, 13, 222, 60, 223, 139, 41, 66, 131, 135, 38,
         ];
 
         assert_eq!(root_hash.as_slice(), expected_app_hash);
@@ -6323,8 +6329,8 @@ mod tests {
             .expect("there is always a root hash");
 
         let expected_app_hash = vec![
-            236, 213, 202, 143, 111, 54, 250, 174, 57, 239, 156, 18, 122, 223, 88, 20, 13, 180, 89,
-            144, 31, 20, 138, 189, 2, 148, 160, 95, 231, 108, 216, 163,
+            233, 90, 110, 8, 43, 137, 139, 242, 8, 152, 175, 246, 177, 73, 49, 137, 61, 142, 2, 49,
+            158, 134, 13, 222, 60, 223, 139, 41, 66, 131, 135, 38,
         ];
 
         assert_eq!(root_hash.as_slice(), expected_app_hash,);
@@ -6537,8 +6543,8 @@ mod tests {
             .expect("there is always a root hash");
 
         let expected_app_hash = vec![
-            174, 178, 50, 69, 201, 231, 248, 75, 88, 168, 83, 29, 141, 40, 117, 63, 157, 205, 24,
-            56, 113, 108, 224, 27, 225, 24, 134, 153, 157, 130, 80, 200,
+            237, 198, 157, 236, 20, 182, 87, 85, 216, 64, 84, 25, 163, 231, 107, 173, 155, 152, 34,
+            64, 34, 142, 234, 16, 99, 134, 153, 156, 24, 208, 150, 115,
         ];
 
         assert_eq!(root_hash.as_slice(), expected_app_hash);
@@ -6617,8 +6623,8 @@ mod tests {
             .expect("there is always a root hash");
 
         let expected_app_hash = vec![
-            174, 178, 50, 69, 201, 231, 248, 75, 88, 168, 83, 29, 141, 40, 117, 63, 157, 205, 24,
-            56, 113, 108, 224, 27, 225, 24, 134, 153, 157, 130, 80, 200,
+            237, 198, 157, 236, 20, 182, 87, 85, 216, 64, 84, 25, 163, 231, 107, 173, 155, 152, 34,
+            64, 34, 142, 234, 16, 99, 134, 153, 156, 24, 208, 150, 115,
         ];
 
         assert_eq!(root_hash.as_slice(), expected_app_hash);
@@ -6718,8 +6724,8 @@ mod tests {
             .expect("there is always a root hash");
 
         let expected_app_hash = vec![
-            174, 178, 50, 69, 201, 231, 248, 75, 88, 168, 83, 29, 141, 40, 117, 63, 157, 205, 24,
-            56, 113, 108, 224, 27, 225, 24, 134, 153, 157, 130, 80, 200,
+            237, 198, 157, 236, 20, 182, 87, 85, 216, 64, 84, 25, 163, 231, 107, 173, 155, 152, 34,
+            64, 34, 142, 234, 16, 99, 134, 153, 156, 24, 208, 150, 115,
         ];
 
         assert_eq!(root_hash.as_slice(), expected_app_hash);

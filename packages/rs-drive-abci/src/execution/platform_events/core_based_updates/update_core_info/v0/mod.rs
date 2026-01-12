@@ -1,7 +1,7 @@
 use crate::error::Error;
 use crate::platform_types::platform::Platform;
-use crate::platform_types::platform_state::v0::PlatformStateV0Methods;
 use crate::platform_types::platform_state::PlatformState;
+use crate::platform_types::platform_state::PlatformStateV0Methods;
 use crate::rpc::core::CoreRPCLike;
 use dpp::block::block_info::BlockInfo;
 use dpp::version::PlatformVersion;
@@ -21,7 +21,7 @@ where
     ///
     /// * platform_state - A reference to the platform state before execution of current block.
     /// * block_platform_state - A mutable reference to the current platform state in the block
-    /// execution context to be updated.
+    ///   execution context to be updated.
     /// * core_block_height - The current block height in the Dash Core.
     /// * is_init_chain - A boolean indicating if the chain is being initialized.
     /// * block_info - A reference to the block information.
@@ -30,8 +30,9 @@ where
     /// # Returns
     ///
     /// * Result<(), Error> - Returns Ok(()) if the update is successful. Returns an error if
-    /// there is a problem updating the masternode list, quorum information, or the state.
+    ///   there is a problem updating the masternode list, quorum information, or the state.
     #[inline(always)]
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn update_core_info_v0(
         &self,
         platform_state: Option<&PlatformState>,

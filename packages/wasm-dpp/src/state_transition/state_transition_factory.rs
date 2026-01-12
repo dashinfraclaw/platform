@@ -7,6 +7,7 @@ use crate::identity::state_transition::{
     IdentityUpdateTransitionWasm,
 };
 use crate::state_transition::errors::invalid_state_transition_error::InvalidStateTransitionErrorWasm;
+use crate::state_transition::errors::state_transition_is_not_active_error::StateTransitionIsNotActiveErrorWasm;
 use crate::voting::state_transition::masternode_vote_transition::MasternodeVoteTransitionWasm;
 use dpp::state_transition::errors::StateTransitionError;
 use dpp::state_transition::state_transition_factory::StateTransitionFactory;
@@ -60,6 +61,24 @@ impl StateTransitionFactoryWasm {
                 StateTransition::MasternodeVote(st) => {
                     Ok(MasternodeVoteTransitionWasm::from(st).into())
                 }
+                StateTransition::IdentityCreditTransferToAddresses(st) => {
+                    serde_wasm_bindgen::to_value(&st).map_err(|e| JsValue::from(e.to_string()))
+                }
+                StateTransition::IdentityCreateFromAddresses(st) => {
+                    serde_wasm_bindgen::to_value(&st).map_err(|e| JsValue::from(e.to_string()))
+                }
+                StateTransition::IdentityTopUpFromAddresses(st) => {
+                    serde_wasm_bindgen::to_value(&st).map_err(|e| JsValue::from(e.to_string()))
+                }
+                StateTransition::AddressFundsTransfer(st) => {
+                    serde_wasm_bindgen::to_value(&st).map_err(|e| JsValue::from(e.to_string()))
+                }
+                StateTransition::AddressFundingFromAssetLock(st) => {
+                    serde_wasm_bindgen::to_value(&st).map_err(|e| JsValue::from(e.to_string()))
+                }
+                StateTransition::AddressCreditWithdrawal(st) => {
+                    serde_wasm_bindgen::to_value(&st).map_err(|e| JsValue::from(e.to_string()))
+                }
             },
             Err(dpp::ProtocolError::StateTransitionError(e)) => match e {
                 StateTransitionError::InvalidStateTransitionError {
@@ -68,6 +87,16 @@ impl StateTransitionFactoryWasm {
                 } => Err(InvalidStateTransitionErrorWasm::new(
                     errors,
                     serde_wasm_bindgen::to_value(&raw_state_transition)?,
+                )
+                .into()),
+                StateTransitionError::StateTransitionIsNotActiveError {
+                    state_transition_type,
+                    active_version_range,
+                    current_protocol_version,
+                } => Err(StateTransitionIsNotActiveErrorWasm::new(
+                    state_transition_type,
+                    active_version_range,
+                    current_protocol_version,
                 )
                 .into()),
             },

@@ -5,7 +5,7 @@ use crate::error::execution::ExecutionError;
 use crate::error::Error;
 use crate::platform_types::platform::Platform;
 use crate::rpc::core::CoreRPCLike;
-use dashcore_rpc::dashcore_rpc_json::MasternodeListItem;
+use dpp::dashcore_rpc::dashcore_rpc_json::MasternodeListItem;
 use dpp::identity::Identity;
 use dpp::version::PlatformVersion;
 
@@ -26,7 +26,7 @@ where
     /// # Returns
     ///
     /// * Result<Identity, Error> - Returns the constructed identity for the owner if successful.
-    /// Otherwise, returns an error.
+    ///   Otherwise, returns an error.
     pub(crate) fn create_owner_identity(
         masternode: &MasternodeListItem,
         platform_version: &PlatformVersion,

@@ -103,7 +103,7 @@ impl<'a> From<&'a ContestedDocumentResourceVotePollWithContractInfo>
     }
 }
 
-impl<'a> From<ContestedDocumentResourceVotePollWithContractInfoAllowBorrowed<'a>>
+impl From<ContestedDocumentResourceVotePollWithContractInfoAllowBorrowed<'_>>
     for ContestedDocumentResourceVotePoll
 {
     fn from(value: ContestedDocumentResourceVotePollWithContractInfoAllowBorrowed) -> Self {
@@ -123,7 +123,7 @@ impl<'a> From<ContestedDocumentResourceVotePollWithContractInfoAllowBorrowed<'a>
     }
 }
 
-impl<'a> From<&ContestedDocumentResourceVotePollWithContractInfoAllowBorrowed<'a>>
+impl From<&ContestedDocumentResourceVotePollWithContractInfoAllowBorrowed<'_>>
     for ContestedDocumentResourceVotePoll
 {
     fn from(value: &ContestedDocumentResourceVotePollWithContractInfoAllowBorrowed) -> Self {
@@ -183,7 +183,7 @@ impl ContestedDocumentResourceVotePollWithContractInfo {
     }
 }
 
-impl<'a> ContestedDocumentResourceVotePollWithContractInfoAllowBorrowed<'a> {
+impl ContestedDocumentResourceVotePollWithContractInfoAllowBorrowed<'_> {
     /// Serializes the contested document resource vote poll with contract information (allowing borrowed data) to bytes.
     ///
     /// # Returns
@@ -257,11 +257,11 @@ impl ContestedDocumentResourceVotePollWithContractInfo {
     ///
     /// This method returns an `Error::Protocol` variant with `ProtocolError::DataContractError`
     /// if there is an issue retrieving the document type.
-    pub fn document_type(&self) -> Result<DocumentTypeRef, Error> {
+    pub fn document_type(&self) -> Result<DocumentTypeRef<'_>, Error> {
         self.contract
             .as_ref()
             .document_type_for_name(self.document_type_name.as_str())
-            .map_err(|e| Error::Protocol(ProtocolError::DataContractError(e)))
+            .map_err(|e| Error::Protocol(Box::new(ProtocolError::DataContractError(e))))
     }
 
     /// Borrows a reference to the document type associated with the document type name.
@@ -279,11 +279,11 @@ impl ContestedDocumentResourceVotePollWithContractInfo {
         self.contract
             .as_ref()
             .document_type_borrowed_for_name(self.document_type_name.as_str())
-            .map_err(|e| Error::Protocol(ProtocolError::DataContractError(e)))
+            .map_err(|e| Error::Protocol(Box::new(ProtocolError::DataContractError(e))))
     }
 }
 
-impl<'a> ContestedDocumentResourceVotePollWithContractInfoAllowBorrowed<'a> {
+impl ContestedDocumentResourceVotePollWithContractInfoAllowBorrowed<'_> {
     /// Retrieves the index associated with the document type and index name.
     ///
     /// # Returns
@@ -317,11 +317,11 @@ impl<'a> ContestedDocumentResourceVotePollWithContractInfoAllowBorrowed<'a> {
     ///
     /// This method returns an `Error::Protocol` variant with `ProtocolError::DataContractError`
     /// if there is an issue retrieving the document type.
-    pub fn document_type(&self) -> Result<DocumentTypeRef, Error> {
+    pub fn document_type(&self) -> Result<DocumentTypeRef<'_>, Error> {
         self.contract
             .as_ref()
             .document_type_for_name(self.document_type_name.as_str())
-            .map_err(|e| Error::Protocol(ProtocolError::DataContractError(e)))
+            .map_err(|e| Error::Protocol(Box::new(ProtocolError::DataContractError(e))))
     }
 
     /// Borrows a reference to the document type associated with the document type name.
@@ -339,6 +339,6 @@ impl<'a> ContestedDocumentResourceVotePollWithContractInfoAllowBorrowed<'a> {
         self.contract
             .as_ref()
             .document_type_borrowed_for_name(self.document_type_name.as_str())
-            .map_err(|e| Error::Protocol(ProtocolError::DataContractError(e)))
+            .map_err(|e| Error::Protocol(Box::new(ProtocolError::DataContractError(e))))
     }
 }

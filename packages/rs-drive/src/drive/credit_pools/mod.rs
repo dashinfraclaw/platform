@@ -47,7 +47,6 @@ pub mod unpaid_epoch;
 pub mod initialization;
 
 /// Operations module
-
 #[cfg(feature = "server")]
 pub mod operations;
 
@@ -116,7 +115,7 @@ impl Drive {
                 &platform_version.drive.grove_version,
             )
             .unwrap()
-            .map_err(Error::GroveDB)?;
+            .map_err(Error::from)?;
 
         let storage_fee_pools = storage_fee_pools_result.to_elements();
 

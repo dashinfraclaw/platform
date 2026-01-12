@@ -8,7 +8,7 @@ use crate::validation::SimpleConsensusValidationResult;
 use crate::ProtocolError;
 use platform_version::version::PlatformVersion;
 
-impl<'a> DocumentTypeRef<'a> {
+impl DocumentTypeRef<'_> {
     #[inline(always)]
     pub(super) fn validate_update_v0(
         &self,
@@ -255,6 +255,7 @@ mod tests {
 
     mod validate_config {
         use super::*;
+        use std::collections::BTreeMap;
 
         #[test]
         fn should_return_invalid_result_when_creation_restriction_mode_is_changed() {
@@ -279,9 +280,12 @@ mod tests {
 
             let old_document_type = DocumentType::try_from_schema(
                 data_contract_id,
+                1,
+                config.version(),
                 document_type_name,
                 schema,
                 None,
+                &BTreeMap::new(),
                 &config,
                 false,
                 &mut Vec::new(),
@@ -306,9 +310,12 @@ mod tests {
 
             let new_document_type = DocumentType::try_from_schema(
                 data_contract_id,
+                1,
+                config.version(),
                 document_type_name,
                 schema,
                 None,
+                &BTreeMap::new(),
                 &config,
                 false,
                 &mut Vec::new(),
@@ -351,9 +358,12 @@ mod tests {
 
             let old_document_type = DocumentType::try_from_schema(
                 data_contract_id,
+                1,
+                config.version(),
                 document_type_name,
                 schema,
                 None,
+                &BTreeMap::new(),
                 &config,
                 false,
                 &mut Vec::new(),
@@ -378,9 +388,12 @@ mod tests {
 
             let new_document_type = DocumentType::try_from_schema(
                 data_contract_id,
+                1,
+                config.version(),
                 document_type_name,
                 schema,
                 None,
+                &BTreeMap::new(),
                 &config,
                 false,
                 &mut Vec::new(),
@@ -423,9 +436,12 @@ mod tests {
 
             let old_document_type = DocumentType::try_from_schema(
                 data_contract_id,
+                1,
+                config.version(),
                 document_type_name,
                 schema,
                 None,
+                &BTreeMap::new(),
                 &config,
                 false,
                 &mut Vec::new(),
@@ -450,9 +466,12 @@ mod tests {
 
             let new_document_type = DocumentType::try_from_schema(
                 data_contract_id,
+                1,
+                config.version(),
                 document_type_name,
                 schema,
                 None,
+                &BTreeMap::new(),
                 &config,
                 false,
                 &mut Vec::new(),
@@ -495,9 +514,12 @@ mod tests {
 
             let old_document_type = DocumentType::try_from_schema(
                 data_contract_id,
+                1,
+                config.version(),
                 document_type_name,
                 schema,
                 None,
+                &BTreeMap::new(),
                 &config,
                 false,
                 &mut Vec::new(),
@@ -522,9 +544,12 @@ mod tests {
 
             let new_document_type = DocumentType::try_from_schema(
                 data_contract_id,
+                1,
+                config.version(),
                 document_type_name,
                 schema,
                 None,
+                &BTreeMap::new(),
                 &config,
                 false,
                 &mut Vec::new(),
@@ -567,9 +592,12 @@ mod tests {
 
             let old_document_type = DocumentType::try_from_schema(
                 data_contract_id,
+                1,
+                config.version(),
                 document_type_name,
                 schema,
                 None,
+                &BTreeMap::new(),
                 &config,
                 false,
                 &mut Vec::new(),
@@ -594,9 +622,12 @@ mod tests {
 
             let new_document_type = DocumentType::try_from_schema(
                 data_contract_id,
+                1,
+                config.version(),
                 document_type_name,
                 schema,
                 None,
+                &BTreeMap::new(),
                 &config,
                 false,
                 &mut Vec::new(),
@@ -639,9 +670,12 @@ mod tests {
 
             let old_document_type = DocumentType::try_from_schema(
                 data_contract_id,
+                1,
+                config.version(),
                 document_type_name,
                 schema,
                 None,
+                &BTreeMap::new(),
                 &config,
                 false,
                 &mut Vec::new(),
@@ -666,9 +700,12 @@ mod tests {
 
             let new_document_type = DocumentType::try_from_schema(
                 data_contract_id,
+                1,
+                config.version(),
                 document_type_name,
                 schema,
                 None,
+                &BTreeMap::new(),
                 &config,
                 false,
                 &mut Vec::new(),
@@ -711,9 +748,12 @@ mod tests {
 
             let old_document_type = DocumentType::try_from_schema(
                 data_contract_id,
+                1,
+                config.version(),
                 document_type_name,
                 schema,
                 None,
+                &BTreeMap::new(),
                 &config,
                 false,
                 &mut Vec::new(),
@@ -735,9 +775,12 @@ mod tests {
 
             let new_document_type = DocumentType::try_from_schema(
                 data_contract_id,
+                1,
+                config.version(),
                 document_type_name,
                 schema,
                 None,
+                &BTreeMap::new(),
                 &config,
                 false,
                 &mut Vec::new(),
@@ -780,9 +823,12 @@ mod tests {
 
             let old_document_type = DocumentType::try_from_schema(
                 data_contract_id,
+                1,
+                config.version(),
                 document_type_name,
                 schema,
                 None,
+                &BTreeMap::new(),
                 &config,
                 false,
                 &mut Vec::new(),
@@ -804,9 +850,12 @@ mod tests {
 
             let new_document_type = DocumentType::try_from_schema(
                 data_contract_id,
+                1,
+                config.version(),
                 document_type_name,
                 schema,
                 None,
+                &BTreeMap::new(),
                 &config,
                 false,
                 &mut Vec::new(),
@@ -849,9 +898,12 @@ mod tests {
 
             let old_document_type = DocumentType::try_from_schema(
                 data_contract_id,
+                1,
+                config.version(),
                 document_type_name,
                 schema,
                 None,
+                &BTreeMap::new(),
                 &config,
                 false,
                 &mut Vec::new(),
@@ -873,9 +925,12 @@ mod tests {
 
             let new_document_type = DocumentType::try_from_schema(
                 data_contract_id,
+                1,
+                config.version(),
                 document_type_name,
                 schema,
                 None,
+                &BTreeMap::new(),
                 &config,
                 false,
                 &mut Vec::new(),
@@ -899,6 +954,7 @@ mod tests {
     mod validate_schema {
         use super::*;
         use crate::consensus::basic::BasicError;
+        use std::collections::BTreeMap;
 
         #[test]
         fn should_pass_when_schema_is_not_changed() {
@@ -923,9 +979,12 @@ mod tests {
 
             let old_document_type = DocumentType::try_from_schema(
                 data_contract_id,
+                1,
+                config.version(),
                 document_type_name,
                 schema.clone(),
                 None,
+                &BTreeMap::new(),
                 &config,
                 false,
                 &mut Vec::new(),
@@ -938,9 +997,12 @@ mod tests {
 
             let new_document_type = DocumentType::try_from_schema(
                 data_contract_id,
+                1,
+                config.version(),
                 document_type_name,
                 schema,
                 None,
+                &BTreeMap::new(),
                 &config,
                 false,
                 &mut Vec::new(),
@@ -979,9 +1041,12 @@ mod tests {
 
             let old_document_type = DocumentType::try_from_schema(
                 data_contract_id,
+                1,
+                config.version(),
                 document_type_name,
                 schema.clone(),
                 None,
+                &BTreeMap::new(),
                 &config,
                 false,
                 &mut Vec::new(),
@@ -1003,9 +1068,12 @@ mod tests {
 
             let new_document_type = DocumentType::try_from_schema(
                 data_contract_id,
+                1,
+                config.version(),
                 document_type_name,
                 schema,
                 None,
+                &BTreeMap::new(),
                 &config,
                 false,
                 &mut Vec::new(),

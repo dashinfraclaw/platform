@@ -1,21 +1,24 @@
-use crate::consensus::basic::token::{InvalidTokenAmountError, InvalidTokenNoteTooBigError};
+use crate::consensus::basic::token::{InvalidTokenAmountError, InvalidTokenNoteTooBigError, TokenNoteOnlyAllowedWhenProposerError};
 use crate::consensus::basic::BasicError;
 use crate::consensus::ConsensusError;
+use crate::data_contract::associated_token::token_perpetual_distribution::distribution_function::MAX_DISTRIBUTION_PARAM;
 use crate::state_transition::batch_transition::token_burn_transition::v0::v0_methods::TokenBurnTransitionV0Methods;
 use crate::state_transition::batch_transition::TokenBurnTransition;
 use crate::tokens::MAX_TOKEN_NOTE_LEN;
 use crate::validation::SimpleConsensusValidationResult;
 use crate::ProtocolError;
+use crate::state_transition::batch_transition::token_base_transition::token_base_transition_accessors::TokenBaseTransitionAccessors;
+use crate::state_transition::batch_transition::token_base_transition::v0::v0_methods::TokenBaseTransitionV0Methods;
 
 pub(super) trait TokenBurnTransitionActionStructureValidationV0 {
     fn validate_structure_v0(&self) -> Result<SimpleConsensusValidationResult, ProtocolError>;
 }
 impl TokenBurnTransitionActionStructureValidationV0 for TokenBurnTransition {
     fn validate_structure_v0(&self) -> Result<SimpleConsensusValidationResult, ProtocolError> {
-        if self.burn_amount() > i64::MAX as u64 {
+        if self.burn_amount() > MAX_DISTRIBUTION_PARAM || self.burn_amount() == 0 {
             return Ok(SimpleConsensusValidationResult::new_with_error(
                 ConsensusError::BasicError(BasicError::InvalidTokenAmountError(
-                    InvalidTokenAmountError::new(i64::MAX as u64, self.burn_amount()),
+                    InvalidTokenAmountError::new(MAX_DISTRIBUTION_PARAM, self.burn_amount()),
                 )),
             ));
         }
@@ -31,6 +34,17 @@ impl TokenBurnTransitionActionStructureValidationV0 for TokenBurnTransition {
                         ),
                     )),
                 ));
+            }
+            if let Some(group_state_transition_info) = self.base().using_group_info() {
+                if !group_state_transition_info.action_is_proposer {
+                    return Ok(SimpleConsensusValidationResult::new_with_error(
+                        ConsensusError::BasicError(
+                            BasicError::TokenNoteOnlyAllowedWhenProposerError(
+                                TokenNoteOnlyAllowedWhenProposerError::new(),
+                            ),
+                        ),
+                    ));
+                }
             }
         }
 

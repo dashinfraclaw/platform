@@ -106,7 +106,9 @@ mod tests {
             .with_config("file_v4", &logger_file_v4)
             .unwrap()
             .build();
-        loggers.install();
+
+        let dispatch = loggers.as_subscriber().expect("subscriber failed");
+        let _guard = tracing::dispatcher::set_default(&dispatch);
 
         const TEST_STRING_DEBUG: &str = "testing debug trace";
         const TEST_STRING_ERROR: &str = "testing error trace";
@@ -145,9 +147,6 @@ mod tests {
         let result_file_verb_4 = fs::read_to_string(&file_v4_path)
             .map_err(|e| panic!("{:?}: {:?}", file_v4_path.clone(), e.to_string()))
             .unwrap();
-
-        println!("{:?}", result_verb_0);
-        println!("{:?}", result_verb_4);
 
         assert!(result_verb_0.contains(TEST_STRING_ERROR));
         assert!(result_dir_verb_0.contains(TEST_STRING_ERROR));
@@ -201,7 +200,6 @@ mod tests {
             let entry = entry.unwrap();
             let path = entry.path();
             let path = path.to_string_lossy();
-            println!("{}", path);
             assert!(path.contains("drive-abci.log"));
             counter += 1;
         });
@@ -287,7 +285,6 @@ mod tests {
                 let path = entry.path();
                 let path_str = path.to_string_lossy();
                 let read = fs::read_to_string(&path).unwrap();
-                println!("{}: {}", path_str, read);
                 assert!(path_str.contains("drive-abci.log"));
 
                 if counter < ITERATIONS - 1 {

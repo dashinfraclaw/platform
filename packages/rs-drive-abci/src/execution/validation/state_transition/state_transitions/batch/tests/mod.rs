@@ -1,7 +1,7 @@
 mod document;
 mod token;
 
-use crate::platform_types::platform_state::v0::PlatformStateV0Methods;
+use crate::platform_types::platform_state::PlatformStateV0Methods;
 
 use dpp::data_contract::accessors::v0::DataContractV0Getters;
 use dpp::data_contract::document_type::accessors::DocumentTypeV0Getters;
@@ -24,6 +24,7 @@ use drive::drive::document::query::QueryDocumentsOutcomeV0Methods;
 use drive::drive::document::query::QueryDocumentsWithFlagsOutcomeV0Methods;
 
 use crate::execution::validation::state_transition::tests::add_tokens_to_identity;
+use crate::execution::validation::state_transition::tests::process_test_state_transition;
 use crate::execution::validation::state_transition::tests::setup_identity;
 use crate::platform_types::state_transitions_processing_result::StateTransitionExecutionResult;
 use crate::platform_types::state_transitions_processing_result::StateTransitionExecutionResult::PaidConsensusError;

@@ -1,8 +1,8 @@
 use crate::error::Error;
 use crate::execution::types::update_state_masternode_list_outcome;
 use crate::platform_types::platform::Platform;
-use crate::platform_types::platform_state::v0::PlatformStateV0Methods;
 use crate::platform_types::platform_state::PlatformState;
+use crate::platform_types::platform_state::PlatformStateV0Methods;
 use crate::rpc::core::CoreRPCLike;
 use dpp::block::block_info::BlockInfo;
 use dpp::block::extended_block_info::v0::ExtendedBlockInfoV0Getters;
@@ -30,6 +30,7 @@ where
     ///
     /// * `Result<(), Error>` - Returns `Ok(())` if the update is successful. Returns an error if
     ///   there is a problem fetching the masternode list difference or updating the state.
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn update_masternode_list_v0(
         &self,
         platform_state: Option<&PlatformState>,

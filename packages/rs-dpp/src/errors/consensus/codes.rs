@@ -1,5 +1,4 @@
 use crate::consensus::signature::SignatureError;
-#[cfg(feature = "state-transition-validation")]
 use crate::consensus::state::data_trigger::DataTriggerError;
 use crate::data_contract::errors::DataContractError;
 
@@ -39,9 +38,7 @@ impl ErrorWithCode for BasicError {
             Self::UnsupportedFeatureError(_) => 10006,
 
             // Structure Errors: 10100-10199
-            #[cfg(feature = "json-schema-validation")]
             Self::JsonSchemaCompilationError(..) => 10100,
-            #[cfg(feature = "json-schema-validation")]
             Self::JsonSchemaError(_) => 10101,
             Self::InvalidIdentifierError { .. } => 10102,
             Self::ValueError(_) => 10103,
@@ -54,7 +51,6 @@ impl ErrorWithCode for BasicError {
             Self::InvalidDataContractIdError { .. } => 10204,
             Self::InvalidIndexedPropertyConstraintError { .. } => 10205,
             Self::InvalidIndexPropertyTypeError { .. } => 10206,
-            #[cfg(feature = "json-schema-validation")]
             Self::InvalidJsonSchemaRefError { .. } => 10207,
             Self::SystemPropertyIndexAlreadyPresentError { .. } => 10208,
             Self::UndefinedIndexPropertyError { .. } => 10209,
@@ -107,6 +103,23 @@ impl ErrorWithCode for BasicError {
             Self::InvalidTokenDistributionFunctionInvalidParameterTupleError(_) => 10256,
             Self::InvalidTokenDistributionFunctionIncoherenceError(_) => 10257,
             Self::MissingDefaultLocalizationError(_) => 10258,
+            Self::UnknownGasFeesPaidByError(_) => 10259,
+            Self::UnknownDocumentActionTokenEffectError(_) => 10260,
+            Self::TokenPaymentByBurningOnlyAllowedOnInternalTokenError(_) => 10261,
+            Self::TooManyKeywordsError(_) => 10262,
+            Self::DuplicateKeywordsError(_) => 10263,
+            Self::InvalidDescriptionLengthError(_) => 10264,
+            Self::NewTokensDestinationIdentityOptionRequiredError(_) => 10265,
+            Self::InvalidTokenNameCharacterError(_) => 10266,
+            Self::InvalidTokenNameLengthError(_) => 10267,
+            Self::InvalidTokenLanguageCodeError(_) => 10268,
+            Self::InvalidKeywordCharacterError(_) => 10269,
+            Self::InvalidKeywordLengthError(_) => 10270,
+            Self::DecimalsOverLimitError(_) => 10271,
+            Self::InvalidTokenDistributionBlockIntervalTooShortError(_) => 10272,
+            Self::InvalidTokenDistributionTimeIntervalTooShortError(_) => 10273,
+            Self::InvalidTokenDistributionTimeIntervalNotMinuteAlignedError(_) => 10274,
+            Self::RedundantDocumentPaidForByTokenWithContractId(_) => 10275,
 
             // Group Errors: 10350-10399
             Self::GroupPositionDoesNotExistError(_) => 10350,
@@ -116,6 +129,9 @@ impl ErrorWithCode for BasicError {
             Self::GroupExceedsMaxMembersError(_) => 10354,
             Self::GroupMemberHasPowerOfZeroError(_) => 10355,
             Self::GroupMemberHasPowerOverLimitError(_) => 10356,
+            Self::MainGroupIsNotDefinedError(_) => 10357,
+            Self::GroupRequiredPowerIsInvalidError(_) => 10358,
+            Self::GroupHasTooFewMembersError(_) => 10359,
 
             // Document Errors: 10400-10449
             Self::DataContractNotPresentError { .. } => 10400,
@@ -149,6 +165,7 @@ impl ErrorWithCode for BasicError {
             Self::InvalidTokenConfigUpdateNoChangeError(_) => 10457,
             Self::InvalidTokenAmountError(_) => 10458,
             Self::InvalidTokenNoteTooBigError(_) => 10459,
+            Self::TokenNoteOnlyAllowedWhenProposerError(_) => 10460,
 
             // Identity Errors: 10500-10599
             Self::DuplicatedIdentityPublicKeyBasicError(_) => 10500,
@@ -172,9 +189,9 @@ impl ErrorWithCode for BasicError {
             Self::TooManyMasterPublicKeyError(_) => 10518,
             Self::InvalidIdentityPublicKeySecurityLevelError(_) => 10519,
             Self::InvalidIdentityKeySignatureError { .. } => 10520,
-            Self::InvalidIdentityCreditWithdrawalTransitionOutputScriptError(_) => 10521,
-            Self::InvalidIdentityCreditWithdrawalTransitionCoreFeeError(_) => 10522,
-            Self::NotImplementedIdentityCreditWithdrawalTransitionPoolingError(_) => 10523,
+            Self::InvalidCreditWithdrawalTransitionOutputScriptError(_) => 10521,
+            Self::InvalidCreditWithdrawalTransitionCoreFeeError(_) => 10522,
+            Self::NotImplementedCreditWithdrawalTransitionPoolingError(_) => 10523,
             Self::InvalidIdentityCreditTransferAmountError(_) => 10524,
             Self::InvalidIdentityCreditWithdrawalTransitionAmountError(_) => 10525,
             Self::InvalidIdentityUpdateTransitionEmptyError(_) => 10526,
@@ -184,14 +201,36 @@ impl ErrorWithCode for BasicError {
             Self::IdentityAssetLockTransactionOutPointNotEnoughBalanceError(_) => 10530,
             Self::IdentityAssetLockStateTransitionReplayError(_) => 10531,
             Self::WithdrawalOutputScriptNotAllowedWhenSigningWithOwnerKeyError(_) => 10532,
+            Self::InvalidKeyPurposeForContractBoundsError(_) => 10533,
 
             // State Transition Errors: 10600-10699
             Self::InvalidStateTransitionTypeError { .. } => 10600,
             Self::MissingStateTransitionTypeError { .. } => 10601,
             Self::StateTransitionMaxSizeExceededError { .. } => 10602,
+            Self::StateTransitionNotActiveError(_) => 10603,
 
             // General Errors 10700-10799
             Self::OverflowError(_) => 10700,
+
+            // Address Errors: 10800-10899
+            Self::TransitionOverMaxInputsError(_) => 10800,
+            Self::TransitionOverMaxOutputsError(_) => 10801,
+            Self::InputWitnessCountMismatchError(_) => 10802,
+            Self::TransitionNoInputsError(_) => 10803,
+            Self::TransitionNoOutputsError(_) => 10804,
+            Self::FeeStrategyEmptyError(_) => 10805,
+            Self::FeeStrategyDuplicateError(_) => 10806,
+            Self::FeeStrategyIndexOutOfBoundsError(_) => 10807,
+            Self::FeeStrategyTooManyStepsError(_) => 10808,
+            Self::InputBelowMinimumError(_) => 10809,
+            Self::OutputBelowMinimumError(_) => 10810,
+            Self::InputOutputBalanceMismatchError(_) => 10811,
+            Self::OutputsNotGreaterThanInputsError(_) => 10812,
+            Self::WithdrawalBalanceMismatchError(_) => 10813,
+            Self::InsufficientFundingAmountError(_) => 10814,
+            Self::InputsNotLessThanOutputsError(_) => 10815,
+            Self::OutputAddressAlsoInputError(_) => 10816,
+            Self::InvalidRemainderOutputCountError(_) => 10817,
         }
     }
 }
@@ -211,6 +250,7 @@ impl ErrorWithCode for SignatureError {
             Self::BasicECDSAError(_) => 20009,
             Self::BasicBLSError(_) => 20010,
             Self::InvalidSignaturePublicKeyPurposeError(_) => 20011,
+            Self::UncompressedPublicKeyNotAllowedError(_) => 20012,
         }
     }
 }
@@ -232,6 +272,11 @@ impl ErrorWithCode for StateError {
             Self::DataContractConfigUpdateError { .. } => 40002,
             Self::DataContractUpdatePermissionError(_) => 40003,
             Self::DataContractUpdateActionNotAllowedError(_) => 40004,
+            Self::PreProgrammedDistributionTimestampInPastError(_) => 40005,
+            Self::IdentityInTokenConfigurationNotFoundError(_) => 40006,
+            Self::IdentityMemberOfGroupNotFoundError(_) => 40007,
+            Self::DataContractNotFoundError(_) => 40008,
+            Self::InvalidTokenPositionStateError(_) => 40009,
 
             // Document Errors: 40100-40199
             Self::DocumentAlreadyPresentError { .. } => 40100,
@@ -249,6 +294,9 @@ impl ErrorWithCode for StateError {
             Self::DocumentContestIdentityAlreadyContestantError(_) => 40112,
             Self::DocumentContestDocumentWithSameIdAlreadyPresentError(_) => 40113,
             Self::DocumentContestNotPaidForError(_) => 40114,
+            Self::RequiredTokenPaymentInfoNotSetError(_) => 40115,
+            Self::IdentityHasNotAgreedToPayRequiredTokenAmountError(_) => 40116,
+            Self::IdentityTryingToPayWithWrongTokenError(_) => 40117,
 
             // Identity Errors: 40200-40299
             Self::IdentityAlreadyExistsError(_) => 40200,
@@ -267,6 +315,7 @@ impl ErrorWithCode for StateError {
             Self::MissingTransferKeyError(_) => 40214,
             Self::NoTransferKeyForCoreWithdrawalAvailableError(_) => 40215,
             Self::RecipientIdentityDoesNotExistError(_) => 40216,
+            Self::IdentityToFreezeDoesNotExistError(_) => 40217,
 
             // Voting Errors: 40300-40399
             Self::MasternodeNotFoundError(_) => 40300,
@@ -282,8 +331,13 @@ impl ErrorWithCode for StateError {
             Self::PrefundedSpecializedBalanceNotFoundError(_) => 40401,
 
             // Data trigger errors: 40500-40699
-            #[cfg(feature = "state-transition-validation")]
             Self::DataTriggerError(ref e) => e.code(),
+
+            // Address errors
+            Self::AddressDoesNotExistError(_) => 40600,
+            Self::AddressNotEnoughFundsError(_) => 40601,
+            Self::AddressesNotEnoughFundsError(_) => 40602,
+            Self::AddressInvalidNonceError(_) => 40603,
 
             // Token errors: 40700-40799
             Self::IdentityDoesNotHaveEnoughTokenBalanceError(_) => 40700,
@@ -305,18 +359,20 @@ impl ErrorWithCode for StateError {
             Self::InvalidTokenClaimNoCurrentRewards(_) => 40716,
             Self::InvalidTokenClaimWrongClaimant(_) => 40717,
             Self::TokenTransferRecipientIdentityNotExistError(_) => 40718,
-            Self::PreProgrammedDistributionTimestampInPastError(_) => 40719,
+            Self::TokenDirectPurchaseUserPriceTooLow(_) => 40719,
+            Self::TokenAmountUnderMinimumSaleAmount(_) => 40720,
+            Self::TokenNotForDirectSale(_) => 40721,
 
             // Group errors: 40800-40899
             Self::IdentityNotMemberOfGroupError(_) => 40800,
             Self::GroupActionDoesNotExistError(_) => 40801,
             Self::GroupActionAlreadyCompletedError(_) => 40802,
             Self::GroupActionAlreadySignedByIdentityError(_) => 40803,
+            Self::ModificationOfGroupActionMainParametersNotPermittedError(_) => 40804,
         }
     }
 }
 
-#[cfg(feature = "state-transition-validation")]
 impl ErrorWithCode for DataTriggerError {
     fn code(&self) -> u32 {
         match self {

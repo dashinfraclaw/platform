@@ -134,6 +134,8 @@ mod tests {
                 0,
                 TokenConfiguration::V0(TokenConfigurationV0::default_most_restrictive()),
             )]),
+            keywords: Vec::new(),
+            description: None,
         });
 
         let contract_id = contract.id();
@@ -159,8 +161,6 @@ mod tests {
                 platform_version,
             )
             .expect("should not error when proving group infos");
-
-        println!("{}", hex::encode(&proof));
 
         // Verify proof
         let proved_group_infos: BTreeMap<GroupContractPosition, Group> =
@@ -278,6 +278,8 @@ mod tests {
                 0,
                 TokenConfiguration::V0(TokenConfigurationV0::default_most_restrictive()),
             )]),
+            keywords: Vec::new(),
+            description: None,
         });
 
         let contract_id = contract.id();

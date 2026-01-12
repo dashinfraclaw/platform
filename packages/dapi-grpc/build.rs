@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
 };
 
-use tonic_build::Builder;
+use tonic_prost_build::Builder;
 
 const SERDE_WITH_BYTES: &str = r#"#[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]"#;
 const SERDE_WITH_BASE64: &str =
@@ -47,6 +47,16 @@ fn generate_code(typ: ImplType) {
         .generate()
         .expect("generate platform proto");
 
+    let drive = MappingConfig::new(
+        PathBuf::from("protos/drive/v0/drive.proto"),
+        PathBuf::from("src/drive"),
+        &typ,
+    );
+
+    configure_drive(drive)
+        .generate()
+        .expect("generate platform proto");
+
     println!("cargo:rerun-if-changed=./protos");
     println!("cargo:rerun-if-env-changed=CARGO_FEATURE_SERDE");
     println!("cargo:rerun-if-env-changed=CARGO_CFG_TARGET_ARCH");
@@ -63,7 +73,7 @@ fn configure_platform(mut platform: MappingConfig) -> MappingConfig {
     // Derive features for versioned messages
     //
     // "GetConsensusParamsRequest" is excluded as this message does not support proofs
-    const VERSIONED_REQUESTS: [&str; 40] = [
+    const VERSIONED_REQUESTS: [&str; 48] = [
         "GetDataContractHistoryRequest",
         "GetDataContractRequest",
         "GetDataContractsRequest",
@@ -75,10 +85,10 @@ fn configure_platform(mut platform: MappingConfig) -> MappingConfig {
         "GetIdentityContractNonceRequest",
         "GetIdentityBalanceAndRevisionRequest",
         "GetIdentityBalanceRequest",
+        "GetIdentityByNonUniquePublicKeyHashRequest",
         "GetIdentityByPublicKeyHashRequest",
         "GetIdentityKeysRequest",
         "GetIdentityRequest",
-        "GetProofsRequest",
         "WaitForStateTransitionResultRequest",
         "GetProtocolVersionUpgradeStateRequest",
         "GetProtocolVersionUpgradeVoteStatusRequest",
@@ -96,22 +106,37 @@ fn configure_platform(mut platform: MappingConfig) -> MappingConfig {
         "GetStatusRequest",
         "GetIdentityTokenBalancesRequest",
         "GetIdentitiesTokenBalancesRequest",
+        "GetTokenPerpetualDistributionLastClaimRequest",
         "GetIdentityTokenInfosRequest",
         "GetIdentitiesTokenInfosRequest",
+        "GetTokenDirectPurchasePricesRequest",
+        "GetTokenContractInfoRequest",
         "GetTokenStatusesRequest",
         "GetTokenTotalSupplyRequest",
         "GetGroupInfoRequest",
         "GetGroupInfosRequest",
         "GetGroupActionsRequest",
         "GetGroupActionSignersRequest",
+        "GetFinalizedEpochInfosRequest",
+        "GetAddressInfoRequest",
+        "GetAddressesInfosRequest",
+        "GetRecentAddressBalanceChangesRequest",
+        "GetRecentCompactedAddressBalanceChangesRequest",
     ];
+
+    const PROOF_ONLY_VERSIONED_REQUESTS: [&str; 1] = ["GetAddressesTrunkStateRequest"];
+
+    const MERK_PROOF_VERSIONED_REQUESTS: [&str; 1] = ["GetAddressesBranchStateRequest"];
 
     // The following responses are excluded as they don't support proofs:
     // - "GetConsensusParamsResponse"
     // - "GetStatusResponse"
     //
+    // The following responses are excluded as they need custom proof handling:
+    // - "GetIdentityByNonUniquePublicKeyHashResponse"
+    //
     //  "GetEvonodesProposedEpochBlocksResponse" is used for 2 Requests
-    const VERSIONED_RESPONSES: [&str; 39] = [
+    const VERSIONED_RESPONSES: [&str; 46] = [
         "GetDataContractHistoryResponse",
         "GetDataContractResponse",
         "GetDataContractsResponse",
@@ -126,7 +151,6 @@ fn configure_platform(mut platform: MappingConfig) -> MappingConfig {
         "GetIdentityByPublicKeyHashResponse",
         "GetIdentityKeysResponse",
         "GetIdentityResponse",
-        "GetProofsResponse",
         "WaitForStateTransitionResultResponse",
         "GetEpochsInfoResponse",
         "GetProtocolVersionUpgradeStateResponse",
@@ -143,25 +167,51 @@ fn configure_platform(mut platform: MappingConfig) -> MappingConfig {
         "GetEvonodesProposedEpochBlocksResponse",
         "GetIdentityTokenBalancesResponse",
         "GetIdentitiesTokenBalancesResponse",
+        "GetTokenPerpetualDistributionLastClaimResponse",
         "GetIdentityTokenInfosResponse",
         "GetIdentitiesTokenInfosResponse",
+        "GetTokenDirectPurchasePricesResponse",
+        "GetTokenContractInfoResponse",
         "GetTokenStatusesResponse",
         "GetTokenTotalSupplyResponse",
         "GetGroupInfoResponse",
         "GetGroupInfosResponse",
         "GetGroupActionsResponse",
         "GetGroupActionSignersResponse",
+        "GetFinalizedEpochInfosResponse",
+        "GetAddressInfoResponse",
+        "GetAddressesInfosResponse",
+        "GetRecentAddressBalanceChangesResponse",
+        "GetRecentCompactedAddressBalanceChangesResponse",
     ];
+
+    const PROOF_ONLY_VERSIONED_RESPONSES: [&str; 1] = ["GetAddressesTrunkStateResponse"];
+
+    const MERK_PROOF_VERSIONED_RESPONSES: [&str; 1] = ["GetAddressesBranchStateResponse"];
 
     check_unique(&VERSIONED_REQUESTS).expect("VERSIONED_REQUESTS");
     check_unique(&VERSIONED_RESPONSES).expect("VERSIONED_RESPONSES");
+    check_unique(&PROOF_ONLY_VERSIONED_REQUESTS).expect("PROOF_ONLY_VERSIONED_REQUESTS");
+    check_unique(&PROOF_ONLY_VERSIONED_RESPONSES).expect("PROOF_ONLY_VERSIONED_RESPONSES");
+    check_unique(&MERK_PROOF_VERSIONED_REQUESTS).expect("MERK_PROOF_VERSIONED_REQUESTS");
+    check_unique(&MERK_PROOF_VERSIONED_RESPONSES).expect("MERK_PROOF_VERSIONED_RESPONSES");
 
     // Derive VersionedGrpcMessage on requests
     for msg in VERSIONED_REQUESTS {
         platform = platform
             .message_attribute(
                 msg,
-                r#"#[derive(::dapi_grpc_macros::VersionedGrpcMessage)]"#,
+                r#"#[derive(::dash_platform_macros::VersionedGrpcMessage)]"#,
+            )
+            .message_attribute(msg, r#"#[grpc_versions(0)]"#);
+    }
+
+    // Derive ProofOnlyVersionedGrpcMessage on requests
+    for msg in PROOF_ONLY_VERSIONED_REQUESTS {
+        platform = platform
+            .message_attribute(
+                msg,
+                r#"#[derive(::dash_platform_macros::ProofOnlyVersionedGrpcMessage)]"#,
             )
             .message_attribute(msg, r#"#[grpc_versions(0)]"#);
     }
@@ -171,13 +221,44 @@ fn configure_platform(mut platform: MappingConfig) -> MappingConfig {
         platform = platform
             .message_attribute(
                 msg,
-                r#"#[derive(::dapi_grpc_macros::VersionedGrpcMessage,::dapi_grpc_macros::VersionedGrpcResponse)]"#,
+                r#"#[derive(::dash_platform_macros::VersionedGrpcMessage,::dash_platform_macros::VersionedGrpcResponse)]"#,
+            )
+            .message_attribute(msg, r#"#[grpc_versions(0)]"#);
+    }
+
+    // Derive VersionedGrpcMessage and ProofOnlyVersionedGrpcResponse on responses
+    for msg in PROOF_ONLY_VERSIONED_RESPONSES {
+        platform = platform
+            .message_attribute(
+                msg,
+                r#"#[derive(::dash_platform_macros::VersionedGrpcMessage,::dash_platform_macros::ProofOnlyVersionedGrpcResponse)]"#,
+            )
+            .message_attribute(msg, r#"#[grpc_versions(0)]"#);
+    }
+
+    // Derive VersionedGrpcMessage on merk proof requests
+    for msg in MERK_PROOF_VERSIONED_REQUESTS {
+        platform = platform
+            .message_attribute(
+                msg,
+                r#"#[derive(::dash_platform_macros::VersionedGrpcMessage)]"#,
+            )
+            .message_attribute(msg, r#"#[grpc_versions(0)]"#);
+    }
+
+    // Derive VersionedGrpcMessage and MerkProofVersionedGrpcResponse on responses
+    for msg in MERK_PROOF_VERSIONED_RESPONSES {
+        platform = platform
+            .message_attribute(
+                msg,
+                r#"#[derive(::dash_platform_macros::VersionedGrpcMessage,::dash_platform_macros::MerkProofVersionedGrpcResponse)]"#,
             )
             .message_attribute(msg, r#"#[grpc_versions(0)]"#);
     }
 
     // All messages can be mocked.
-    let platform = platform.message_attribute(".", r#"#[derive( ::dapi_grpc_macros::Mockable)]"#);
+    let platform =
+        platform.message_attribute(".", r#"#[derive( ::dash_platform_macros::Mockable)]"#);
 
     let platform = platform
         .type_attribute(
@@ -210,6 +291,19 @@ fn configure_platform(mut platform: MappingConfig) -> MappingConfig {
     platform
 }
 
+fn configure_drive(drive: MappingConfig) -> MappingConfig {
+    drive
+        .message_attribute(".", r#"#[derive( ::dash_platform_macros::Mockable)]"#)
+        .type_attribute(
+            ".",
+            r#"#[cfg_attr(feature = "serde", derive(::serde::Serialize, ::serde::Deserialize))]"#,
+        )
+        .type_attribute(
+            ".",
+            r#"#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]"#,
+        )
+}
+
 /// Check for duplicate messages in the list.
 fn check_unique(messages: &[&'static str]) -> Result<(), String> {
     let mut hashset: HashSet<&'static str> = HashSet::new();
@@ -234,7 +328,7 @@ fn check_unique(messages: &[&'static str]) -> Result<(), String> {
 
 fn configure_core(core: MappingConfig) -> MappingConfig {
     // All messages can be mocked.
-    let core = core.message_attribute(".", r#"#[derive(::dapi_grpc_macros::Mockable)]"#);
+    let core = core.message_attribute(".", r#"#[derive(::dash_platform_macros::Mockable)]"#);
 
     // Serde support
     let core = core.type_attribute(
@@ -304,7 +398,7 @@ impl MappingConfig {
         let out_dir = abs_path(&out_dir.join(out_dir_suffix));
 
         let builder = typ
-            .configure(tonic_build::configure())
+            .configure(tonic_prost_build::configure())
             .out_dir(out_dir.clone())
             .protoc_arg("--experimental_allow_proto3_optional");
 
@@ -319,6 +413,14 @@ impl MappingConfig {
     #[allow(unused)]
     fn type_attribute(mut self, path: &str, attribute: &str) -> Self {
         self.builder = self.builder.type_attribute(path, attribute);
+        self
+    }
+
+    #[allow(unused)]
+    fn includes(mut self, includes: &[PathBuf]) -> Self {
+        for include in includes {
+            self.proto_includes.push(abs_path(include));
+        }
         self
     }
 

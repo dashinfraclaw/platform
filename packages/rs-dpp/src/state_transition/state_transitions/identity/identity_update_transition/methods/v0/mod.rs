@@ -16,7 +16,8 @@ use platform_version::version::PlatformVersion;
 
 pub trait IdentityUpdateTransitionMethodsV0 {
     #[cfg(feature = "state-transition-signing")]
-    fn try_from_identity_with_signer<S: Signer>(
+    #[allow(clippy::too_many_arguments)]
+    fn try_from_identity_with_signer<S: Signer<IdentityPublicKey>>(
         identity: &Identity,
         master_public_key_id: &KeyID,
         add_public_keys: Vec<IdentityPublicKey>,

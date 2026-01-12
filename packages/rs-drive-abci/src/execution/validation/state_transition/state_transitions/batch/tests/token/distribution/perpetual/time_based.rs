@@ -9,9 +9,10 @@ use dpp::state_transition::batch_transition::BatchTransition;
 use platform_version::version::PlatformVersion;
 use rand::prelude::StdRng;
 mod perpetual_distribution_time {
+    use std::collections::BTreeMap;
     use dpp::block::epoch::Epoch;
     use dpp::data_contract::associated_token::token_distribution_key::TokenDistributionType;
-    use dpp::data_contract::associated_token::token_perpetual_distribution::distribution_function::{DistributionFunction, MAX_DISTRIBUTION_PARAM, MAX_LINEAR_SLOPE_PARAM};
+    use dpp::data_contract::associated_token::token_perpetual_distribution::distribution_function::{DistributionFunction, MAX_DISTRIBUTION_PARAM, MAX_LINEAR_SLOPE_A_PARAM};
     use dpp::data_contract::associated_token::token_perpetual_distribution::distribution_recipient::TokenDistributionRecipient;
     use dpp::data_contract::associated_token::token_perpetual_distribution::reward_distribution_type::RewardDistributionType;
     use dpp::data_contract::associated_token::token_perpetual_distribution::TokenPerpetualDistribution;
@@ -52,6 +53,7 @@ mod perpetual_distribution_time {
             }),
             None,
             None,
+            None,
             platform_version,
         );
 
@@ -70,8 +72,6 @@ mod perpetual_distribution_time {
             0,
             &signer,
             platform_version,
-            None,
-            None,
             None,
         )
         .expect("expect to create documents batch transition");
@@ -102,7 +102,7 @@ mod perpetual_distribution_time {
 
         assert_matches!(
             processing_result.execution_results().as_slice(),
-            [StateTransitionExecutionResult::SuccessfulExecution(_, _)]
+            [StateTransitionExecutionResult::SuccessfulExecution { .. }]
         );
 
         platform
@@ -139,8 +139,6 @@ mod perpetual_distribution_time {
             &signer,
             platform_version,
             None,
-            None,
-            None,
         )
         .expect("expect to create documents batch transition");
 
@@ -170,10 +168,10 @@ mod perpetual_distribution_time {
 
         assert_matches!(
             processing_result.execution_results().as_slice(),
-            [StateTransitionExecutionResult::PaidConsensusError(
-                ConsensusError::StateError(StateError::InvalidTokenClaimNoCurrentRewards(_)),
-                _
-            )]
+            [PaidConsensusError {
+                error: ConsensusError::StateError(StateError::InvalidTokenClaimNoCurrentRewards(_)),
+                ..
+            }]
         );
 
         platform
@@ -209,8 +207,6 @@ mod perpetual_distribution_time {
             &signer,
             platform_version,
             None,
-            None,
-            None,
         )
         .expect("expect to create documents batch transition");
 
@@ -240,7 +236,7 @@ mod perpetual_distribution_time {
 
         assert_matches!(
             processing_result.execution_results().as_slice(),
-            [StateTransitionExecutionResult::SuccessfulExecution(_, _)]
+            [StateTransitionExecutionResult::SuccessfulExecution { .. }]
         );
 
         platform
@@ -302,6 +298,7 @@ mod perpetual_distribution_time {
             }),
             None,
             None,
+            None,
             platform_version,
         );
 
@@ -320,8 +317,6 @@ mod perpetual_distribution_time {
             0,
             &signer,
             platform_version,
-            None,
-            None,
             None,
         )
         .expect("expect to create documents batch transition");
@@ -352,10 +347,10 @@ mod perpetual_distribution_time {
 
         assert_matches!(
             processing_result.execution_results().as_slice(),
-            [StateTransitionExecutionResult::PaidConsensusError(
-                ConsensusError::StateError(StateError::InvalidTokenClaimWrongClaimant(_)),
-                _
-            )]
+            [PaidConsensusError {
+                error: ConsensusError::StateError(StateError::InvalidTokenClaimWrongClaimant(_)),
+                ..
+            }]
         );
 
         platform
@@ -426,6 +421,7 @@ mod perpetual_distribution_time {
             }),
             None,
             None,
+            None,
             platform_version,
         );
 
@@ -444,8 +440,6 @@ mod perpetual_distribution_time {
             0,
             &signer_2,
             platform_version,
-            None,
-            None,
             None,
         )
         .expect("expect to create documents batch transition");
@@ -476,7 +470,7 @@ mod perpetual_distribution_time {
 
         assert_matches!(
             processing_result.execution_results().as_slice(),
-            [StateTransitionExecutionResult::SuccessfulExecution(_, _)]
+            [StateTransitionExecutionResult::SuccessfulExecution { .. }]
         );
 
         platform
@@ -544,6 +538,7 @@ mod perpetual_distribution_time {
             }),
             None,
             None,
+            None,
             platform_version,
         );
 
@@ -563,8 +558,6 @@ mod perpetual_distribution_time {
             0,
             &signer_2,
             platform_version,
-            None,
-            None,
             None,
         )
         .expect("expect to create documents batch transition");
@@ -595,7 +588,7 @@ mod perpetual_distribution_time {
 
         assert_matches!(
             processing_result.execution_results().as_slice(),
-            [StateTransitionExecutionResult::SuccessfulExecution(_, _)]
+            [StateTransitionExecutionResult::SuccessfulExecution { .. }]
         );
 
         platform
@@ -634,8 +627,6 @@ mod perpetual_distribution_time {
             &signer_2,
             platform_version,
             None,
-            None,
-            None,
         )
         .expect("expect to create documents batch transition");
 
@@ -665,7 +656,7 @@ mod perpetual_distribution_time {
 
         assert_matches!(
             processing_result.execution_results().as_slice(),
-            [StateTransitionExecutionResult::SuccessfulExecution(_, _)]
+            [StateTransitionExecutionResult::SuccessfulExecution { .. }]
         );
 
         platform
@@ -734,6 +725,7 @@ mod perpetual_distribution_time {
             }),
             None,
             None,
+            None,
             platform_version,
         );
 
@@ -753,8 +745,6 @@ mod perpetual_distribution_time {
             0,
             &signer_2,
             platform_version,
-            None,
-            None,
             None,
         )
         .expect("expect to create documents batch transition");
@@ -785,7 +775,7 @@ mod perpetual_distribution_time {
 
         assert_matches!(
             processing_result.execution_results().as_slice(),
-            [StateTransitionExecutionResult::SuccessfulExecution(_, _)]
+            [StateTransitionExecutionResult::SuccessfulExecution { .. }]
         );
 
         platform
@@ -826,8 +816,6 @@ mod perpetual_distribution_time {
             &signer_2,
             platform_version,
             None,
-            None,
-            None,
         )
         .expect("expect to create documents batch transition");
 
@@ -857,10 +845,10 @@ mod perpetual_distribution_time {
 
         assert_matches!(
             processing_result.execution_results().as_slice(),
-            [StateTransitionExecutionResult::PaidConsensusError(
-                ConsensusError::StateError(StateError::InvalidTokenClaimNoCurrentRewards(_)),
-                _
-            )]
+            [PaidConsensusError {
+                error: ConsensusError::StateError(StateError::InvalidTokenClaimNoCurrentRewards(_)),
+                ..
+            }]
         );
 
         platform
@@ -927,6 +915,7 @@ mod perpetual_distribution_time {
             }),
             Some(9_000_000),
             None,
+            None,
             platform_version,
         );
 
@@ -946,8 +935,6 @@ mod perpetual_distribution_time {
             0,
             &signer_2,
             platform_version,
-            None,
-            None,
             None,
         )
         .expect("expect to create documents batch transition");
@@ -978,7 +965,7 @@ mod perpetual_distribution_time {
 
         assert_matches!(
             processing_result.execution_results().as_slice(),
-            [StateTransitionExecutionResult::SuccessfulExecution(_, _)]
+            [StateTransitionExecutionResult::SuccessfulExecution { .. }]
         );
 
         platform
@@ -1017,8 +1004,6 @@ mod perpetual_distribution_time {
             &signer_2,
             platform_version,
             None,
-            None,
-            None,
         )
         .expect("expect to create documents batch transition");
 
@@ -1048,10 +1033,10 @@ mod perpetual_distribution_time {
 
         assert_matches!(
             processing_result.execution_results().as_slice(),
-            [StateTransitionExecutionResult::PaidConsensusError(
-                ConsensusError::StateError(StateError::InvalidTokenClaimNoCurrentRewards(_)),
-                _
-            )]
+            [PaidConsensusError {
+                error: ConsensusError::StateError(StateError::InvalidTokenClaimNoCurrentRewards(_)),
+                ..
+            }]
         );
 
         platform
@@ -1102,8 +1087,8 @@ mod perpetual_distribution_time {
                                 // every 1 millisecond
                                 interval: 1,
                                 function: DistributionFunction::Linear {
-                                    a: MAX_LINEAR_SLOPE_PARAM as i64, // Strongest slope
-                                    d: 1,                             // No division
+                                    a: MAX_LINEAR_SLOPE_A_PARAM as i64, // Strongest slope
+                                    d: 1,                               // No division
                                     start_step: None,
                                     starting_amount: MAX_DISTRIBUTION_PARAM,
                                     min_value: None,
@@ -1116,6 +1101,7 @@ mod perpetual_distribution_time {
                         },
                     )));
             }),
+            None,
             None,
             None,
             platform_version,
@@ -1137,8 +1123,6 @@ mod perpetual_distribution_time {
             0,
             &signer_2,
             platform_version,
-            None,
-            None,
             None,
         )
         .expect("expect to create documents batch transition");
@@ -1169,7 +1153,7 @@ mod perpetual_distribution_time {
 
         assert_matches!(
             processing_result.execution_results().as_slice(),
-            [StateTransitionExecutionResult::SuccessfulExecution(_, _)]
+            [StateTransitionExecutionResult::SuccessfulExecution { .. }]
         );
 
         platform
@@ -1204,8 +1188,6 @@ mod perpetual_distribution_time {
             &signer_2,
             platform_version,
             None,
-            None,
-            None,
         )
         .expect("expect to create documents batch transition");
 
@@ -1235,7 +1217,7 @@ mod perpetual_distribution_time {
 
         assert_matches!(
             processing_result.execution_results().as_slice(),
-            [StateTransitionExecutionResult::SuccessfulExecution(_, _)]
+            [StateTransitionExecutionResult::SuccessfulExecution { .. }]
         );
 
         platform
@@ -1287,8 +1269,8 @@ mod perpetual_distribution_time {
                                 // every 1 millisecond
                                 interval: 1,
                                 function: DistributionFunction::Linear {
-                                    a: MAX_LINEAR_SLOPE_PARAM as i64, // Strongest slope
-                                    d: 1,                             // No division
+                                    a: MAX_LINEAR_SLOPE_A_PARAM as i64, // Strongest slope
+                                    d: 1,                               // No division
                                     start_step: None,
                                     starting_amount: MAX_DISTRIBUTION_PARAM,
                                     min_value: None,
@@ -1301,6 +1283,7 @@ mod perpetual_distribution_time {
                         },
                     )));
             }),
+            None,
             None,
             None,
             platform_version,
@@ -1323,8 +1306,6 @@ mod perpetual_distribution_time {
                 0,
                 &signer_2,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -1355,7 +1336,7 @@ mod perpetual_distribution_time {
 
             assert_matches!(
                 processing_result.execution_results().as_slice(),
-                [StateTransitionExecutionResult::SuccessfulExecution(_, _)]
+                [StateTransitionExecutionResult::SuccessfulExecution { .. }]
             );
 
             platform
@@ -1377,5 +1358,135 @@ mod perpetual_distribution_time {
             .expect("expected to fetch token balance");
         // This is i64::Max
         assert_eq!(token_balance, Some(9223372036854675807));
+    }
+
+    #[test]
+    fn test_token_perpetual_distribution_stepwise_distribution() {
+        let platform_version = PlatformVersion::latest();
+        let mut platform = TestPlatformBuilder::new()
+            .with_latest_protocol_version()
+            .build_with_mock_rpc()
+            .set_genesis_state();
+
+        let mut rng = StdRng::seed_from_u64(4981);
+
+        let platform_state = platform.state.load();
+
+        let (identity, _, _) = setup_identity(&mut platform, rng.gen(), dash_to_credits!(0.5));
+
+        let (identity_2, signer_2, key_2) =
+            setup_identity(&mut platform, rng.gen(), dash_to_credits!(0.5));
+
+        fast_forward_to_block(&platform, 10_000_000, 40, 42, 1, false);
+
+        let (contract, token_id) = create_token_contract_with_owner_identity(
+            &mut platform,
+            identity.id(),
+            Some(|token_configuration: &mut TokenConfiguration| {
+                token_configuration
+                    .distribution_rules_mut()
+                    .set_perpetual_distribution(Some(TokenPerpetualDistribution::V0(
+                        TokenPerpetualDistributionV0 {
+                            distribution_type: RewardDistributionType::TimeBasedDistribution {
+                                // every 5 minutes
+                                interval: 300_000,
+                                function: DistributionFunction::Stepwise(BTreeMap::from([
+                                    (5, 1),
+                                    (50, 1000),
+                                ])),
+                            },
+                            distribution_recipient: TokenDistributionRecipient::Identity(
+                                identity_2.id(),
+                            ),
+                        },
+                    )));
+            }),
+            Some(10_000_000),
+            None,
+            Some(40),
+            platform_version,
+        );
+
+        let token_balance = platform
+            .drive
+            .fetch_identity_token_balance(
+                token_id.to_buffer(),
+                identity_2.id().to_buffer(),
+                None,
+                platform_version,
+            )
+            .expect("expected to fetch token balance");
+
+        assert_eq!(token_balance, None);
+
+        // 5 hours later
+        fast_forward_to_block(&platform, 28_000_000, 50, 42, 1, false);
+
+        // We have gone 18_000_000, which is 60 steps, with the initial step also counting, so 61
+        // We should get 5*0
+        //               45*1
+        //               11*1000
+        let claim_transition = BatchTransition::new_token_claim_transition(
+            token_id,
+            identity_2.id(),
+            contract.id(),
+            0,
+            TokenDistributionType::Perpetual,
+            None,
+            &key_2,
+            2,
+            0,
+            &signer_2,
+            platform_version,
+            None,
+        )
+        .expect("expect to create documents batch transition");
+
+        let claim_serialized_transition = claim_transition
+            .serialize_to_bytes()
+            .expect("expected documents batch serialized state transition");
+
+        let transaction = platform.drive.grove.start_transaction();
+
+        let processing_result = platform
+            .platform
+            .process_raw_state_transitions(
+                &vec![claim_serialized_transition.clone()],
+                &platform_state,
+                &BlockInfo {
+                    time_ms: 28_000_000,
+                    height: 50,
+                    core_height: 42,
+                    epoch: Epoch::new(1).unwrap(),
+                },
+                &transaction,
+                platform_version,
+                false,
+                None,
+            )
+            .expect("expected to process state transition");
+
+        assert_matches!(
+            processing_result.execution_results().as_slice(),
+            [StateTransitionExecutionResult::SuccessfulExecution { .. }]
+        );
+
+        platform
+            .drive
+            .grove
+            .commit_transaction(transaction)
+            .unwrap()
+            .expect("expected to commit transaction");
+
+        let token_balance = platform
+            .drive
+            .fetch_identity_token_balance(
+                token_id.to_buffer(),
+                identity_2.id().to_buffer(),
+                None,
+                platform_version,
+            )
+            .expect("expected to fetch token balance");
+        assert_eq!(token_balance, Some(11045));
     }
 }

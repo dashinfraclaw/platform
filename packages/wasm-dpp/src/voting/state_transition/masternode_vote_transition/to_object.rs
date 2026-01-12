@@ -2,7 +2,7 @@ use dpp::identity::KeyID;
 
 use dpp::state_transition::masternode_vote_transition::accessors::MasternodeVoteTransitionAccessorsV0;
 use dpp::state_transition::masternode_vote_transition::MasternodeVoteTransition;
-use dpp::state_transition::StateTransitionIdentitySigned;
+use dpp::state_transition::{StateTransitionIdentitySigned, StateTransitionSingleSigned};
 use dpp::voting::votes::Vote;
 use dpp::{identifier::Identifier, state_transition::StateTransitionLike};
 use serde::Deserialize;
@@ -18,6 +18,7 @@ pub struct ToObjectOptions {
 pub struct ToObject {
     pub transition_type: u8,
     pub pro_tx_hash: Identifier,
+    #[allow(dead_code)]
     pub vote: Vote,
     pub signature: Option<Vec<u8>>,
     pub signature_public_key_id: Option<KeyID>,

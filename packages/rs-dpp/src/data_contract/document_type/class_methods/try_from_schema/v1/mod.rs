@@ -8,7 +8,9 @@ use crate::consensus::basic::data_contract::{
 use crate::consensus::ConsensusError;
 use crate::data_contract::document_type::index::Index;
 use crate::data_contract::document_type::index_level::IndexLevel;
-use crate::data_contract::document_type::property::{DocumentProperty, DocumentPropertyType};
+use crate::data_contract::document_type::property::DocumentProperty;
+#[cfg(feature = "validation")]
+use crate::data_contract::document_type::property::DocumentPropertyType;
 #[cfg(feature = "validation")]
 use crate::data_contract::document_type::schema::validate_max_depth;
 #[cfg(feature = "validation")]
@@ -27,14 +29,24 @@ use crate::consensus::basic::data_contract::ContestedUniqueIndexWithUniqueIndexE
 #[cfg(any(test, feature = "validation"))]
 use crate::consensus::basic::data_contract::InvalidDocumentTypeNameError;
 #[cfg(feature = "validation")]
+use crate::consensus::basic::data_contract::RedundantDocumentPaidForByTokenWithContractId;
+#[cfg(feature = "validation")]
+use crate::consensus::basic::data_contract::TokenPaymentByBurningOnlyAllowedOnInternalTokenError;
+#[cfg(feature = "validation")]
 use crate::consensus::basic::document::MissingPositionsInDocumentTypePropertiesError;
+#[cfg(feature = "validation")]
+use crate::consensus::basic::token::InvalidTokenPositionError;
 #[cfg(feature = "validation")]
 use crate::consensus::basic::BasicError;
 use crate::data_contract::config::v0::DataContractConfigGettersV0;
 use crate::data_contract::config::DataContractConfig;
 use crate::data_contract::document_type::class_methods::try_from_schema::{
-    insert_values, insert_values_nested, MAX_INDEXED_BYTE_ARRAY_PROPERTY_LENGTH,
-    MAX_INDEXED_STRING_PROPERTY_LENGTH, NOT_ALLOWED_SYSTEM_PROPERTIES, SYSTEM_PROPERTIES,
+    insert_values, insert_values_nested,
+};
+#[cfg(feature = "validation")]
+use crate::data_contract::document_type::class_methods::try_from_schema::{
+    MAX_INDEXED_BYTE_ARRAY_PROPERTY_LENGTH, MAX_INDEXED_STRING_PROPERTY_LENGTH,
+    NOT_ALLOWED_SYSTEM_PROPERTIES,
 };
 use crate::data_contract::document_type::class_methods::{
     consensus_or_protocol_data_contract_error, consensus_or_protocol_value_error,
@@ -48,8 +60,12 @@ use crate::data_contract::document_type::v1::DocumentTypeV1;
 use crate::data_contract::document_type::{property_names, DocumentType};
 use crate::data_contract::errors::DataContractError;
 use crate::data_contract::storage_requirements::keys_for_document_type::StorageKeyRequirements;
-use crate::data_contract::TokenContractPosition;
+use crate::data_contract::{TokenConfiguration, TokenContractPosition};
 use crate::identity::SecurityLevel;
+use crate::tokens::gas_fees_paid_by::GasFeesPaidBy;
+use crate::tokens::token_amount_on_contract_token::{
+    DocumentActionTokenCost, DocumentActionTokenEffect,
+};
 #[cfg(feature = "validation")]
 use crate::validation::meta_validators::DOCUMENT_META_SCHEMA_V0;
 use crate::validation::operations::ProtocolValidationOperation;
@@ -60,14 +76,18 @@ use platform_value::{Identifier, Value};
 impl DocumentTypeV1 {
     // TODO: Split into multiple functions
     #[allow(unused_variables)]
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn try_from_schema(
         data_contract_id: Identifier,
+        data_contract_system_version: u16,
+        contract_config_version: u16,
         name: &str,
         schema: Value,
         schema_defs: Option<&BTreeMap<String, Value>>,
+        token_configurations: &BTreeMap<TokenContractPosition, TokenConfiguration>,
         data_contact_config: &DataContractConfig,
         full_validation: bool, // we don't need to validate if loaded from state
-        validation_operations: &mut Vec<ProtocolValidationOperation>,
+        validation_operations: &mut impl Extend<ProtocolValidationOperation>,
         platform_version: &PlatformVersion,
     ) -> Result<Self, ProtocolError> {
         // Create a full root JSON Schema from shorten contract document type schema
@@ -81,9 +101,7 @@ impl DocumentTypeV1 {
         if full_validation {
             // TODO we are silently dropping this error when we shouldn't be
             // but returning this error causes tests to fail; investigate more.
-            ProtocolError::CorruptedCodeExecution(
-                "validation is not enabled but is being called on try_from_schema".to_string(),
-            );
+            "validation is not enabled but is being called on try_from_schema".to_string();
         }
 
         #[cfg(feature = "validation")]
@@ -111,18 +129,18 @@ impl DocumentTypeV1 {
 
                 let schema_size = result.into_data()?.size;
 
-                validation_operations.push(
+                validation_operations.extend(std::iter::once(
                     ProtocolValidationOperation::DocumentTypeSchemaValidationForSize(schema_size),
-                );
+                ));
 
                 return Err(ProtocolError::ConsensusError(Box::new(error)));
             }
 
             let schema_size = result.into_data()?.size;
 
-            validation_operations.push(
+            validation_operations.extend(std::iter::once(
                 ProtocolValidationOperation::DocumentTypeSchemaValidationForSize(schema_size),
-            );
+            ));
 
             // Make sure JSON Schema is compilable
             let root_json_schema = root_schema.try_to_validating_json().map_err(|e| {
@@ -199,11 +217,11 @@ impl DocumentTypeV1 {
 
         #[cfg(feature = "validation")]
         if full_validation {
-            validation_operations.push(
+            validation_operations.extend(std::iter::once(
                 ProtocolValidationOperation::DocumentTypeSchemaPropertyValidation(
                     property_values.values().len() as u64,
                 ),
-            );
+            ));
 
             // We should validate that the positions are continuous
             for (pos, value) in property_values.values().enumerate() {
@@ -301,12 +319,12 @@ impl DocumentTypeV1 {
 
                         #[cfg(feature = "validation")]
                         if full_validation {
-                            validation_operations.push(
+                            validation_operations.extend(std::iter::once(
                                 ProtocolValidationOperation::DocumentTypeSchemaIndexValidation(
                                     index.properties.len() as u64,
                                     index.unique,
                                 ),
-                            );
+                            ));
 
                             // Unique indices produces significant load on the system during state validation
                             // so we need to limit their number to prevent of spikes and DoS attacks
@@ -425,7 +443,14 @@ impl DocumentTypeV1 {
                                 }
 
                                 // Indexed property must be defined in user schema if it's not a system one
-                                if !SYSTEM_PROPERTIES.contains(&index_property.name.as_str()) {
+                                if !DocumentType::system_properties_contains(
+                                    data_contract_system_version,
+                                    contract_config_version,
+                                    documents_transferable,
+                                    trade_mode,
+                                    index_property.name.as_str(),
+                                    platform_version,
+                                )? {
                                     let property_definition = flattened_document_properties
                                         .get(&index_property.name)
                                         .ok_or_else(|| {
@@ -543,19 +568,87 @@ impl DocumentTypeV1 {
 
         let token_costs_value = schema.get_optional_value("tokenCost")?;
 
-        let extract_cost =
-            |key: &str| -> Result<Option<(TokenContractPosition, TokenAmount)>, ProtocolError> {
-                token_costs_value
-                    .and_then(|v| v.get_optional_value(key).transpose())
-                    .transpose()?
-                    .map(|action_cost| {
-                        Ok((
-                            action_cost.get_integer::<TokenContractPosition>("tokenPosition")?,
-                            action_cost.get_integer::<TokenAmount>("amount")?,
-                        ))
+        let extract_cost = |key: &str| -> Result<Option<DocumentActionTokenCost>, ProtocolError> {
+            token_costs_value
+                .and_then(|v| v.get_optional_value(key).transpose())
+                .transpose()?
+                .map(|action_cost| {
+                    // Extract an optional contract_id. Adjust the key if necessary.
+                    let target_contract_id = action_cost.get_optional_identifier("contractId")?;
+                    // Extract token_contract_position as an integer, then convert it.
+                    let token_contract_position =
+                        action_cost.get_integer::<TokenContractPosition>("tokenPosition")?;
+                    // Extract the token amount.
+                    let token_amount = action_cost.get_integer::<TokenAmount>("amount")?;
+                    // Extract the token effect
+                    let effect = action_cost
+                        .get_optional_integer::<u64>("effect")?
+                        .map(|int| int.try_into())
+                        .transpose()?
+                        .unwrap_or(DocumentActionTokenEffect::TransferTokenToContractOwner);
+
+                    #[cfg(feature = "validation")]
+                    if full_validation {
+                        // contract id is none if we are on our own contract
+                        if target_contract_id.is_none() && !token_configurations.contains_key(&token_contract_position) {
+                            return Err(ProtocolError::ConsensusError(
+                                ConsensusError::BasicError(
+                                    BasicError::InvalidTokenPositionError(
+                                        InvalidTokenPositionError::new(
+                                            token_configurations.last_key_value().map(|(position, _)| *position),
+                                            token_contract_position,
+                                        ),
+                                    ),
+                                )
+                                    .into(),
+                            ));
+                        }
+
+                        // If contractId is present and user tries to burn, bail out:
+                        if let Some(target_contract_id) = target_contract_id {
+                            if target_contract_id == data_contract_id {
+                                // we are in the same contract, but we set the data contract id
+                                return Err(ProtocolError::ConsensusError(
+                                    ConsensusError::BasicError(
+                                        BasicError::RedundantDocumentPaidForByTokenWithContractId(RedundantDocumentPaidForByTokenWithContractId::new(target_contract_id))
+                                    )
+                                        .into(),
+                                ));
+                            }
+                            if effect == DocumentActionTokenEffect::BurnToken {
+                                return Err(ProtocolError::ConsensusError(
+                                    ConsensusError::BasicError(
+                                        BasicError::TokenPaymentByBurningOnlyAllowedOnInternalTokenError(
+                                            TokenPaymentByBurningOnlyAllowedOnInternalTokenError::new(
+                                                target_contract_id,
+                                                token_contract_position,
+                                                key.to_string(),
+                                            ),
+                                        ),
+                                    )
+                                        .into(),
+                                ));
+                            }
+                        }
+                    }
+
+                    // Extract an optional string and map it to the enum, defaulting if missing or unrecognized.
+                    let gas_fees_paid_by = action_cost
+                        .get_optional_integer::<u64>("gasFeesPaidBy")?
+                        .map(|int| int.try_into())
+                        .transpose()?
+                        .unwrap_or(GasFeesPaidBy::DocumentOwner);
+
+                    Ok(DocumentActionTokenCost {
+                        contract_id: target_contract_id,
+                        token_contract_position,
+                        token_amount,
+                        effect,
+                        gas_fees_paid_by,
                     })
-                    .transpose()
-            };
+                })
+                .transpose()
+        };
 
         let token_costs = TokenCostsV0 {
             create: extract_cost("create")?,
@@ -625,9 +718,12 @@ mod tests {
 
             let _result = DocumentTypeV1::try_from_schema(
                 Identifier::new([1; 32]),
+                1,
+                config.version(),
                 "valid_name-a-b-123",
                 schema,
                 None,
+                &BTreeMap::new(),
                 &config,
                 true,
                 &mut vec![],
@@ -656,9 +752,12 @@ mod tests {
 
             let result = DocumentTypeV1::try_from_schema(
                 Identifier::new([1; 32]),
+                1,
+                config.version(),
                 "",
                 schema,
                 None,
+                &BTreeMap::new(),
                 &config,
                 true,
                 &mut vec![],
@@ -698,9 +797,12 @@ mod tests {
 
             let result = DocumentTypeV1::try_from_schema(
                 Identifier::new([1; 32]),
+                1,
+                config.version(),
                 &"a".repeat(65),
                 schema,
                 None,
+                &BTreeMap::new(),
                 &config,
                 true,
                 &mut vec![],
@@ -740,6 +842,8 @@ mod tests {
 
             let result = DocumentTypeV0::try_from_schema(
                 Identifier::new([1; 32]),
+                1,
+                config.version(),
                 "invalid name",
                 schema.clone(),
                 None,
@@ -766,9 +870,12 @@ mod tests {
 
             let result = DocumentTypeV1::try_from_schema(
                 Identifier::new([1; 32]),
+                1,
+                config.version(),
                 "invalid&name",
                 schema,
                 None,
+                &BTreeMap::new(),
                 &config,
                 true,
                 &mut vec![],

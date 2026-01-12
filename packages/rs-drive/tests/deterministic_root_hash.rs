@@ -302,7 +302,7 @@ mod tests {
         // We expect a different app hash because data contract is not serialized the same way
         let expected_app_hash = match platform_version.protocol_version {
             0..=8 => "1b80f4a9f00597b3f1ddca904b3cee67576868adcdd802c0a3f91e14209bb402",
-            _ => "107bcfc100e64a51e60b3e7ca7e7823b11968c2db599c212a8d09869e3ce1dd0",
+            _ => "14d9e2cdc3f25d1dfd079c1f9dd0d44db5bf73d397b04258449231a2d5bafda7",
         };
 
         assert_eq!(
@@ -316,7 +316,7 @@ mod tests {
     /// Runs `test_root_hash_with_batches` 10 times.
     #[test]
     fn test_deterministic_root_hash_with_batches_first_platform_version() {
-        let drive = setup_drive(None, None);
+        let drive = setup_drive(None);
 
         let platform_version = PlatformVersion::first();
 
@@ -335,7 +335,7 @@ mod tests {
     /// Runs `test_root_hash_with_batches` 10 times.
     #[test]
     fn test_root_hash_with_batches_for_version() {
-        let drive = setup_drive(None, None);
+        let drive = setup_drive(None);
 
         let db_transaction = drive.grove.start_transaction();
 

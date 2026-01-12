@@ -243,6 +243,7 @@ pub(super) fn create_domain_data_trigger_v0(
             block_time_ms: None,
         };
 
+        // todo: deal with cost of this operation
         let documents = context
             .platform
             .drive
@@ -333,6 +334,7 @@ pub(super) fn create_domain_data_trigger_v0(
         block_time_ms: None,
     };
 
+    // todo: deal with cost of this operation
     let preorder_documents = context
         .platform
         .drive
@@ -377,7 +379,7 @@ mod test {
     use drive::drive::contract::DataContractFetchInfo;
     use crate::execution::types::state_transition_execution_context::{StateTransitionExecutionContext, StateTransitionExecutionContextMethodsV0};
     use crate::platform_types::platform::PlatformStateRef;
-    use crate::platform_types::platform_state::v0::PlatformStateV0Methods;
+    use crate::platform_types::platform_state::PlatformStateV0Methods;
     use crate::test::helpers::setup::TestPlatformBuilder;
     use super::*;
     use dpp::state_transition::batch_transition::resolvers::v0::BatchTransitionResolversV0;
@@ -425,7 +427,7 @@ mod test {
         let transitions = get_batched_transitions_fixture(
             [(
                 DocumentTransitionActionType::Create,
-                vec![(document, document_type, Bytes32::default())],
+                vec![(document, document_type, Bytes32::default(), None)],
             )],
             &mut nonce_counter,
         );
@@ -445,10 +447,10 @@ mod test {
         };
 
         let result = create_domain_data_trigger_v0(
-            &DocumentCreateTransitionAction::try_from_document_borrowed_create_transition_with_contract_lookup(&platform.drive, None,
-                                                                                                               document_create_transition, &BlockInfo::default(), |_identifier| {
+            &DocumentCreateTransitionAction::try_from_document_borrowed_create_transition_with_contract_lookup(&platform.drive, owner_id, None,
+                                                                                                               document_create_transition, &BlockInfo::default(), 0, |_identifier| {
                     Ok(Arc::new(DataContractFetchInfo::dpns_contract_fixture(platform_version.protocol_version)))
-                }, platform_version).expect("expected to create action").0.into(),
+                }, platform_version).expect("expected to create action").0.into_data().expect("expected to be a valid transition").as_document_action().expect("expected document action"),
             &data_trigger_context,
             platform_version,
         )

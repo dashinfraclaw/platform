@@ -36,10 +36,10 @@ impl Drive {
         drive_operations: &mut Vec<LowLevelDriveOperation>,
         drive_version: &DriveVersion,
     ) -> Result<(), Error> {
-        if path_query.query.limit == None {
-            Error::Drive(DriveError::NotSupported(
+        if path_query.query.limit.is_none() {
+            return Err(Error::Drive(DriveError::NotSupported(
                 "Limits are required for path_query",
-            ));
+            )));
         }
         let query_result = if path_query
             .query
@@ -104,7 +104,7 @@ impl Drive {
                 BatchDeleteApplyType::StatefulBatchDelete {
                     is_known_to_be_subtree_with_sum,
                 } => self.grove.delete_operation_for_delete_internal(
-                    (path.as_slice()).into(),
+                    path.as_slice().into(),
                     key.as_slice(),
                     &options,
                     is_known_to_be_subtree_with_sum,
@@ -143,7 +143,7 @@ mod tests {
     #[test]
     fn test_batch_delete_items_in_path_query_success() {
         // Set up a test drive instance and transaction
-        let drive = setup_drive(None, None);
+        let drive = setup_drive(None);
         let platform_version = PlatformVersion::latest();
         let transaction = drive.grove.start_transaction();
 
@@ -156,6 +156,7 @@ mod tests {
             .grove_insert_empty_tree(
                 SubtreePath::empty(),
                 b"root",
+                TreeType::NormalTree,
                 Some(&transaction),
                 None,
                 &mut vec![],
@@ -227,14 +228,14 @@ mod tests {
         );
         assert_matches!(
             get_result,
-            Err(Error::GroveDB(grovedb::Error::PathKeyNotFound(_)))
+            Err(Error::GroveDB(e)) if matches!(e.as_ref(), grovedb::Error::PathKeyNotFound(_))
         );
     }
 
     #[test]
     fn test_batch_delete_items_in_path_query_range_query() {
         // Set up a test drive instance and transaction
-        let drive = setup_drive(None, None);
+        let drive = setup_drive(None);
         let platform_version = PlatformVersion::latest();
         let transaction = drive.grove.start_transaction();
 
@@ -243,6 +244,7 @@ mod tests {
             .grove_insert_empty_tree(
                 SubtreePath::empty(),
                 b"root",
+                TreeType::NormalTree,
                 Some(&transaction),
                 None,
                 &mut vec![],
@@ -348,7 +350,7 @@ mod tests {
         );
         assert_matches!(
             get_result_1,
-            Err(Error::GroveDB(grovedb::Error::PathKeyNotFound(_)))
+            Err(Error::GroveDB(e)) if matches!(e.as_ref(), grovedb::Error::PathKeyNotFound(_))
         );
 
         let get_result_2 = drive.grove_get(
@@ -361,7 +363,7 @@ mod tests {
         );
         assert_matches!(
             get_result_2,
-            Err(Error::GroveDB(grovedb::Error::PathKeyNotFound(_)))
+            Err(Error::GroveDB(e)) if matches!(e.as_ref(), grovedb::Error::PathKeyNotFound(_))
         );
 
         // Verify that key 3 is still there
@@ -379,7 +381,7 @@ mod tests {
     #[test]
     fn test_batch_delete_items_in_path_query_no_elements() {
         // Set up a test drive instance and transaction
-        let drive = setup_drive(None, None);
+        let drive = setup_drive(None);
         let platform_version = PlatformVersion::latest();
         let transaction = drive.grove.start_transaction();
 
@@ -388,6 +390,7 @@ mod tests {
             .grove_insert_empty_tree(
                 SubtreePath::empty(),
                 b"root",
+                TreeType::NormalTree,
                 Some(&transaction),
                 None,
                 &mut vec![],
@@ -448,14 +451,14 @@ mod tests {
         );
         assert_matches!(
             get_result,
-            Err(Error::GroveDB(grovedb::Error::PathKeyNotFound(_)))
+            Err(Error::GroveDB(e)) if matches!(e.as_ref(), grovedb::Error::PathKeyNotFound(_))
         );
     }
 
     #[test]
     fn test_batch_delete_items_in_path_query_intermediate_path_missing() {
         // Set up a test drive instance and transaction
-        let drive = setup_drive(None, None);
+        let drive = setup_drive(None);
         let platform_version = PlatformVersion::latest();
         let transaction = drive.grove.start_transaction();
 
@@ -484,14 +487,14 @@ mod tests {
         // Assert failure due to missing intermediate path
         assert_matches!(
             result,
-            Err(Error::GroveDB(grovedb::Error::PathParentLayerNotFound(_)))
+            Err(Error::GroveDB(e)) if matches!(e.as_ref(), grovedb::Error::PathParentLayerNotFound(_))
         );
     }
 
     #[test]
     fn test_batch_delete_items_in_path_query_stateless_delete() {
         // Set up a test drive instance and transaction
-        let drive = setup_drive(None, None);
+        let drive = setup_drive(None);
         let platform_version = PlatformVersion::latest();
         let transaction = drive.grove.start_transaction();
 
@@ -505,6 +508,7 @@ mod tests {
             .grove_insert_empty_tree(
                 SubtreePath::empty(),
                 b"root",
+                TreeType::NormalTree,
                 Some(&transaction),
                 None,
                 &mut vec![],
@@ -582,7 +586,7 @@ mod tests {
         );
         assert_matches!(
             get_result,
-            Err(Error::GroveDB(grovedb::Error::PathKeyNotFound(_)))
+            Err(Error::GroveDB(e)) if matches!(e.as_ref(), grovedb::Error::PathKeyNotFound(_))
         );
     }
 }

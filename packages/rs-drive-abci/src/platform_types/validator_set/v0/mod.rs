@@ -6,20 +6,22 @@ use dpp::dashcore::ProTxHash;
 
 use crate::platform_types::platform_state::PlatformState;
 use crate::platform_types::validator::v0::NewValidatorIfMasternodeInState;
-use dashcore_rpc::json::QuorumInfoResult;
 use dpp::bls_signatures::PublicKey as BlsPublicKey;
 use dpp::core_types::validator::v0::ValidatorV0;
 pub use dpp::core_types::validator_set::v0::*;
+use dpp::dashcore_rpc::json::QuorumInfoResult;
 use std::collections::BTreeMap;
 use tenderdash_abci::proto::abci::ValidatorSetUpdate;
 use tenderdash_abci::proto::crypto::public_key::Sum::Bls12381;
 use tenderdash_abci::proto::{abci, crypto};
 
+#[allow(dead_code)]
 pub(crate) trait ValidatorSetMethodsV0 {
     #[allow(unused)]
     fn update_difference(&self, rhs: &ValidatorSetV0) -> Result<ValidatorSetUpdate, Error>;
 
     fn to_update(&self) -> ValidatorSetUpdate;
+    #[allow(dead_code)]
     fn to_update_owned(self) -> ValidatorSetUpdate;
     /// Try to create a quorum from info from the Masternode list (given with state),
     /// and for information return for quorum members
@@ -97,12 +99,8 @@ impl ValidatorSetMethodsV0 for ValidatorSetV0 {
                                 );
 
                                 Some(Ok(abci::ValidatorUpdate {
-                                    pub_key: public_key.clone().map(|public_key| {
-                                        crypto::PublicKey {
-                                            sum: Some(Bls12381(
-                                                public_key.0.to_compressed().to_vec(),
-                                            )),
-                                        }
+                                    pub_key: (*public_key).map(|public_key| crypto::PublicKey {
+                                        sum: Some(Bls12381(public_key.0.to_compressed().to_vec())),
                                     }),
                                     power: 100,
                                     pro_tx_hash: pro_tx_hash.as_byte_array().to_vec(),
@@ -131,12 +129,8 @@ impl ValidatorSetMethodsV0 for ValidatorSetV0 {
                                 );
 
                                 Some(Ok(abci::ValidatorUpdate {
-                                    pub_key: public_key.clone().map(|public_key| {
-                                        crypto::PublicKey {
-                                            sum: Some(Bls12381(
-                                                public_key.0.to_compressed().to_vec(),
-                                            )),
-                                        }
+                                    pub_key: (*public_key).map(|public_key| crypto::PublicKey {
+                                        sum: Some(Bls12381(public_key.0.to_compressed().to_vec())),
                                     }),
                                     power: 100,
                                     pro_tx_hash: pro_tx_hash.to_byte_array().to_vec(),

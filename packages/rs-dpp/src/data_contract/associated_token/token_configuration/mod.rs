@@ -15,9 +15,8 @@ pub enum TokenConfiguration {
     #[serde(rename = "0")]
     V0(TokenConfigurationV0),
 }
-
 impl TokenConfiguration {
-    pub fn as_cow_v0(&self) -> Cow<TokenConfigurationV0> {
+    pub fn as_cow_v0(&self) -> Cow<'_, TokenConfigurationV0> {
         match self {
             TokenConfiguration::V0(v0) => Cow::Borrowed(v0),
         }

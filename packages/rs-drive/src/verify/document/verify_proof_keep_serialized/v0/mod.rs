@@ -7,7 +7,7 @@ use crate::query::DriveDocumentQuery;
 use dpp::version::PlatformVersion;
 use grovedb::GroveDb;
 
-impl<'a> DriveDocumentQuery<'a> {
+impl DriveDocumentQuery<'_> {
     /// Verifies the given proof and returns the root hash of the GroveDB tree and a vector
     /// of serialized documents if the verification is successful.
     ///
@@ -49,7 +49,7 @@ impl<'a> DriveDocumentQuery<'a> {
         let documents = proved_key_values
             .into_iter()
             .filter_map(|(_path, _key, element)| element)
-            .map(|element| element.into_item_bytes().map_err(Error::GroveDB))
+            .map(|element| element.into_item_bytes().map_err(Error::from))
             .collect::<Result<Vec<Vec<u8>>, Error>>()?;
         Ok((root_hash, documents))
     }

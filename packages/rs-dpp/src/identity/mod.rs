@@ -7,6 +7,7 @@ pub use identity_public_key::*;
 
 pub mod core_script;
 mod get_biggest_possible_identity;
+#[allow(clippy::module_inception)]
 mod identity;
 pub mod identity_public_key;
 
@@ -17,7 +18,7 @@ pub mod errors;
 pub mod signer;
 
 pub mod accessors;
-pub(crate) mod conversion;
+pub mod conversion;
 pub mod fields;
 pub mod identities_contract_keys;
 #[cfg(feature = "client")]

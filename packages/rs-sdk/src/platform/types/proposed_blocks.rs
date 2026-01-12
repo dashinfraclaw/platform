@@ -3,8 +3,8 @@
 use crate::platform::{FetchMany, LimitQuery, QueryStartInfo};
 use crate::{Error, Sdk};
 use async_trait::async_trait;
-use dashcore_rpc::dashcore::ProTxHash;
 use dpp::block::epoch::EpochIndex;
+use dpp::dashcore_rpc::dashcore::ProTxHash;
 use drive_proof_verifier::types::{ProposerBlockCountByRange, ProposerBlockCounts};
 // Trait needed here to implement functions on foreign type.
 
@@ -43,7 +43,6 @@ pub trait ProposedBlockCountEx<K: Ord> {
     /// ## See also
     ///
     /// - [`ProposerBlockCounts`](crate::ProposerBlockCounts): The data structure holding the result of this operation.
-
     async fn fetch_proposed_blocks_by_range(
         sdk: &Sdk,
         epoch: Option<EpochIndex>,

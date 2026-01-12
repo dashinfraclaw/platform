@@ -46,6 +46,12 @@ describe('DataContractCreateTransition', () => {
 
       expect(result.toObject()).to.deep.equal(dataContract.toObject());
     });
+
+    it('should return Data Contract with specific protocol version', () => {
+      const result = stateTransition.getDataContract(1);
+
+      expect(result.toObject()).to.deep.equal(dataContract.toObject());
+    });
   });
 
   describe.skip('#toJSON', () => {
@@ -66,7 +72,7 @@ describe('DataContractCreateTransition', () => {
     it('should return serialized State Transition', () => {
       const result = stateTransition.toBuffer();
       expect(result).to.be.instanceOf(Buffer);
-      expect(result).to.have.lengthOf(2360);
+      expect(result).to.have.lengthOf(2359);
     });
 
     it('should be able to restore contract config from bytes', () => {

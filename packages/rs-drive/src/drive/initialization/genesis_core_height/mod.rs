@@ -59,7 +59,7 @@ impl Drive {
             .ok_or(Error::Drive(DriveError::CorruptedCodeExecution(
                 "genesis core height must exist",
             )))
-            .and_then(|element| element.into_item_bytes().map_err(Error::GroveDB))?;
+            .and_then(|element| element.into_item_bytes().map_err(Error::from))?;
 
         let genesis_core_height =
             u32::from_be_bytes(genesis_core_height_vec.try_into().map_err(|_| {
@@ -89,15 +89,11 @@ mod tests {
 
         let core_genesis_height: CoreBlockHeight = 1320;
         drive
-            .store_genesis_core_height(
-                core_genesis_height,
-                Some(&db_transaction),
-                &platform_version,
-            )
+            .store_genesis_core_height(core_genesis_height, Some(&db_transaction), platform_version)
             .expect("expected to store genesis core height");
 
         let read_core_genesis_height = drive
-            .fetch_genesis_core_height(Some(&db_transaction), &platform_version)
+            .fetch_genesis_core_height(Some(&db_transaction), platform_version)
             .expect("expected to fetch genesis core height");
 
         assert_eq!(core_genesis_height, read_core_genesis_height);

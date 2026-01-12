@@ -311,6 +311,14 @@ impl_transport_request_grpc!(
 );
 
 impl_transport_request_grpc!(
+    platform_proto::GetFinalizedEpochInfosRequest,
+    platform_proto::GetFinalizedEpochInfosResponse,
+    PlatformGrpcClient,
+    RequestSettings::default(),
+    get_finalized_epoch_infos
+);
+
+impl_transport_request_grpc!(
     platform_proto::GetProtocolVersionUpgradeStateRequest,
     platform_proto::GetProtocolVersionUpgradeStateResponse,
     PlatformGrpcClient,
@@ -490,6 +498,15 @@ impl_transport_request_grpc!(
     get_status
 );
 
+//   rpc getIdentityByNonUniquePublicKeyHash(GetIdentityByNonUniquePublicKeyHashRequest) returns (GetIdentityByNonUniquePublicKeyHashResponse);
+impl_transport_request_grpc!(
+    platform_proto::GetIdentityByNonUniquePublicKeyHashRequest,
+    platform_proto::GetIdentityByNonUniquePublicKeyHashResponse,
+    PlatformGrpcClient,
+    RequestSettings::default(),
+    get_identity_by_non_unique_public_key_hash
+);
+
 // rpc getIdentityTokenBalances(GetIdentityTokenBalancesRequest) returns (GetIdentityTokenBalancesResponse);
 impl_transport_request_grpc!(
     platform_proto::GetIdentityTokenBalancesRequest,
@@ -578,4 +595,85 @@ impl_transport_request_grpc!(
     PlatformGrpcClient,
     RequestSettings::default(),
     get_group_action_signers
+);
+
+// rpc getTokenDirectPurchasePrices(GetTokenDirectPurchasePricesRequest) returns (GetTokenDirectPurchasePricesResponse);
+impl_transport_request_grpc!(
+    platform_proto::GetTokenDirectPurchasePricesRequest,
+    platform_proto::GetTokenDirectPurchasePricesResponse,
+    PlatformGrpcClient,
+    RequestSettings::default(),
+    get_token_direct_purchase_prices
+);
+
+// rpc getTokenContractInfo(GetTokenContractInfoRequest) returns (GetTokenContractInfoResponse);
+impl_transport_request_grpc!(
+    platform_proto::GetTokenContractInfoRequest,
+    platform_proto::GetTokenContractInfoResponse,
+    PlatformGrpcClient,
+    RequestSettings::default(),
+    get_token_contract_info
+);
+
+// rpc getTokenPerpetualDistributionLastClaimRequest(GetTokenPerpetualDistributionLastClaimRequest) returns (GetTokenPerpetualDistributionLastClaimResponse);
+impl_transport_request_grpc!(
+    platform_proto::GetTokenPerpetualDistributionLastClaimRequest,
+    platform_proto::GetTokenPerpetualDistributionLastClaimResponse,
+    PlatformGrpcClient,
+    RequestSettings::default(),
+    get_token_perpetual_distribution_last_claim
+);
+
+// rpc getAddressInfo(GetAddressInfoRequest) returns (GetAddressInfoResponse);
+impl_transport_request_grpc!(
+    platform_proto::GetAddressInfoRequest,
+    platform_proto::GetAddressInfoResponse,
+    PlatformGrpcClient,
+    RequestSettings::default(),
+    get_address_info
+);
+
+// rpc getAddressesInfos(GetAddressesInfosRequest) returns (GetAddressesInfosResponse);
+impl_transport_request_grpc!(
+    platform_proto::GetAddressesInfosRequest,
+    platform_proto::GetAddressesInfosResponse,
+    PlatformGrpcClient,
+    RequestSettings::default(),
+    get_addresses_infos
+);
+
+// rpc getAddressesTrunkState(GetAddressesTrunkStateRequest) returns (GetAddressesTrunkStateResponse);
+impl_transport_request_grpc!(
+    platform_proto::GetAddressesTrunkStateRequest,
+    platform_proto::GetAddressesTrunkStateResponse,
+    PlatformGrpcClient,
+    RequestSettings::default(),
+    get_addresses_trunk_state
+);
+
+// rpc getAddressesBranchState(GetAddressesBranchStateRequest) returns (GetAddressesBranchStateResponse);
+impl_transport_request_grpc!(
+    platform_proto::GetAddressesBranchStateRequest,
+    platform_proto::GetAddressesBranchStateResponse,
+    PlatformGrpcClient,
+    RequestSettings::default(),
+    get_addresses_branch_state
+);
+
+// rpc getRecentAddressBalanceChanges(GetRecentAddressBalanceChangesRequest) returns (GetRecentAddressBalanceChangesResponse);
+impl_transport_request_grpc!(
+    platform_proto::GetRecentAddressBalanceChangesRequest,
+    platform_proto::GetRecentAddressBalanceChangesResponse,
+    PlatformGrpcClient,
+    RequestSettings::default(),
+    get_recent_address_balance_changes
+);
+
+// rpc getRecentCompactedAddressBalanceChanges(GetRecentCompactedAddressBalanceChangesRequest) returns (GetRecentCompactedAddressBalanceChangesResponse);
+impl_transport_request_grpc!(
+    platform_proto::GetRecentCompactedAddressBalanceChangesRequest,
+    platform_proto::GetRecentCompactedAddressBalanceChangesResponse,
+    PlatformGrpcClient,
+    RequestSettings::default(),
+    get_recent_compacted_address_balance_changes
 );

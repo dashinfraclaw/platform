@@ -11,9 +11,11 @@ use crate::fees::op::LowLevelDriveOperation;
 #[cfg(feature = "server")]
 use dpp::block::block_info::BlockInfo;
 use dpp::data_contract::accessors::v0::DataContractV0Getters;
+#[cfg(feature = "server")]
 use dpp::data_contract::document_type::DocumentTypeRef;
 use dpp::data_contract::DataContract;
 use dpp::identifier::Identifier;
+#[cfg(feature = "server")]
 use dpp::ProtocolError;
 #[cfg(feature = "server")]
 use grovedb::TransactionArg;
@@ -24,7 +26,9 @@ use std::sync::Arc;
 /// Represents various forms of accessing or representing a data contract.
 /// This enum is used to handle different scenarios in which data contracts
 /// might be needed, providing a unified interface to access their data.
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug)]
+#[cfg(feature = "server")]
 pub enum DataContractInfo<'a> {
     /// A unique identifier for a data contract. This variant is typically used
     /// when only the identity of the data contract is required without needing
@@ -46,6 +50,7 @@ pub enum DataContractInfo<'a> {
     OwnedDataContract(DataContract),
 }
 
+#[cfg(feature = "server")]
 impl<'a> DataContractInfo<'a> {
     #[cfg(feature = "server")]
     /// Resolve the data contract info into an object that contains the data contract
@@ -89,6 +94,7 @@ impl<'a> DataContractInfo<'a> {
 /// Contains resolved data contract information, typically used after initial
 /// fetching or retrieval steps have been completed. This enum simplifies handling
 /// of data contract states post-retrieval.
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum DataContractOwnedResolvedInfo {
     #[cfg(feature = "server")]
@@ -143,6 +149,7 @@ impl DataContractOwnedResolvedInfo {
 /// Contains resolved data contract information, typically used after initial
 /// fetching or retrieval steps have been completed. This enum simplifies handling
 /// of data contract states post-retrieval.
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum DataContractResolvedInfo<'a> {
     #[cfg(feature = "server")]
@@ -177,7 +184,7 @@ impl<'a> From<&'a DataContractOwnedResolvedInfo> for DataContractResolvedInfo<'a
     }
 }
 
-impl<'a> DataContractResolvedInfo<'a> {
+impl DataContractResolvedInfo<'_> {
     /// The id of the contract
     pub fn id(&self) -> Identifier {
         match self {
@@ -191,7 +198,7 @@ impl<'a> DataContractResolvedInfo<'a> {
         }
     }
 }
-impl<'a> AsRef<DataContract> for DataContractResolvedInfo<'a> {
+impl AsRef<DataContract> for DataContractResolvedInfo<'_> {
     /// The ref of the contract
     fn as_ref(&self) -> &DataContract {
         match self {
@@ -205,7 +212,9 @@ impl<'a> AsRef<DataContract> for DataContractResolvedInfo<'a> {
 }
 
 /// Enumerates methods for identifying or referencing document types, accommodating various application needs.
+#[allow(clippy::enum_variant_names)]
 #[derive(Clone, Debug)]
+#[cfg(feature = "server")]
 pub enum DocumentTypeInfo<'a> {
     /// Contains the document type name as an owned `String`, suitable for dynamic or mutable scenarios.
     DocumentTypeName(String),
@@ -217,6 +226,7 @@ pub enum DocumentTypeInfo<'a> {
     DocumentTypeRef(DocumentTypeRef<'a>),
 }
 
+#[cfg(feature = "server")]
 impl<'a> DocumentTypeInfo<'a> {
     /// Resolve the data contract info into an object that contains the data contract
     pub fn resolve(self, contract: &'a DataContract) -> Result<DocumentTypeRef<'a>, ProtocolError> {

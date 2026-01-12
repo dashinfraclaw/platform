@@ -1,14 +1,18 @@
 use crate::drive::votes::paths::vote_end_date_queries_tree_path_vec;
+#[cfg(feature = "server")]
 use crate::drive::Drive;
 #[cfg(feature = "server")]
 use crate::error::drive::DriveError;
+#[cfg(feature = "server")]
 use crate::error::Error;
 #[cfg(feature = "server")]
 use crate::fees::op::LowLevelDriveOperation;
 #[cfg(feature = "server")]
 use crate::query::GroveError;
 use crate::query::Query;
-use crate::util::common::encode::{decode_u64, encode_u64};
+#[cfg(feature = "server")]
+use crate::util::common::encode::decode_u64;
+use crate::util::common::encode::encode_u64;
 use bincode::{Decode, Encode};
 #[cfg(feature = "server")]
 use dpp::block::block_info::BlockInfo;
@@ -117,9 +121,16 @@ impl VotePollsByEndDateDriveQuery {
             &platform_version.drive,
         );
         match query_result {
-            Err(Error::GroveDB(GroveError::PathKeyNotFound(_)))
-            | Err(Error::GroveDB(GroveError::PathNotFound(_)))
-            | Err(Error::GroveDB(GroveError::PathParentLayerNotFound(_))) => Ok(BTreeMap::new()),
+            Err(Error::GroveDB(e))
+                if matches!(
+                    e.as_ref(),
+                    GroveError::PathKeyNotFound(_)
+                        | GroveError::PathNotFound(_)
+                        | GroveError::PathParentLayerNotFound(_)
+                ) =>
+            {
+                Ok(BTreeMap::new())
+            }
             Err(e) => Err(e),
             Ok((query_result_elements, _)) => {
                 let vote_polls_by_end_date = query_result_elements
@@ -131,7 +142,7 @@ impl VotePollsByEndDateDriveQuery {
                                 "we should always have a path not be null".to_string(),
                             )));
                         };
-                        let timestamp = decode_u64(last_path_component).map_err(Error::from)?;
+                        let timestamp = decode_u64(last_path_component)?;
                         let contested_document_resource_vote_poll_bytes =
                             element.into_item_bytes().map_err(Error::from)?;
                         let vote_poll = VotePoll::deserialize_from_bytes(
@@ -173,9 +184,16 @@ impl VotePollsByEndDateDriveQuery {
             &platform_version.drive,
         );
         match query_result {
-            Err(Error::GroveDB(GroveError::PathKeyNotFound(_)))
-            | Err(Error::GroveDB(GroveError::PathNotFound(_)))
-            | Err(Error::GroveDB(GroveError::PathParentLayerNotFound(_))) => Ok(vec![]),
+            Err(Error::GroveDB(e))
+                if matches!(
+                    e.as_ref(),
+                    GroveError::PathKeyNotFound(_)
+                        | GroveError::PathNotFound(_)
+                        | GroveError::PathParentLayerNotFound(_)
+                ) =>
+            {
+                Ok(vec![])
+            }
             Err(e) => Err(e),
             Ok((query_result_elements, _)) => {
                 // Process the query result elements and collect VotePolls
@@ -347,9 +365,16 @@ impl VotePollsByEndDateDriveQuery {
             &platform_version.drive,
         );
         match query_result {
-            Err(Error::GroveDB(GroveError::PathKeyNotFound(_)))
-            | Err(Error::GroveDB(GroveError::PathNotFound(_)))
-            | Err(Error::GroveDB(GroveError::PathParentLayerNotFound(_))) => Ok(BTreeMap::new()),
+            Err(Error::GroveDB(e))
+                if matches!(
+                    e.as_ref(),
+                    GroveError::PathKeyNotFound(_)
+                        | GroveError::PathNotFound(_)
+                        | GroveError::PathParentLayerNotFound(_)
+                ) =>
+            {
+                Ok(BTreeMap::new())
+            }
             Err(e) => Err(e),
             Ok((query_result_elements, _)) => {
                 let vote_polls_by_end_date = query_result_elements
@@ -361,7 +386,7 @@ impl VotePollsByEndDateDriveQuery {
                                 "we should always have a path not be null".to_string(),
                             )));
                         };
-                        let timestamp = decode_u64(last_path_component).map_err(Error::from)?;
+                        let timestamp = decode_u64(last_path_component)?;
                         let contested_document_resource_vote_poll_bytes =
                             element.into_item_bytes().map_err(Error::from)?;
                         let vote_poll = VotePoll::deserialize_from_bytes(
@@ -401,9 +426,16 @@ impl VotePollsByEndDateDriveQuery {
             &platform_version.drive,
         );
         match query_result {
-            Err(Error::GroveDB(GroveError::PathKeyNotFound(_)))
-            | Err(Error::GroveDB(GroveError::PathNotFound(_)))
-            | Err(Error::GroveDB(GroveError::PathParentLayerNotFound(_))) => Ok(BTreeMap::new()),
+            Err(Error::GroveDB(e))
+                if matches!(
+                    e.as_ref(),
+                    GroveError::PathKeyNotFound(_)
+                        | GroveError::PathNotFound(_)
+                        | GroveError::PathParentLayerNotFound(_)
+                ) =>
+            {
+                Ok(BTreeMap::new())
+            }
             Err(e) => Err(e),
             Ok((query_result_elements, _)) => {
                 let vote_polls_by_end_date = query_result_elements
@@ -415,7 +447,7 @@ impl VotePollsByEndDateDriveQuery {
                                 "we should always have a path not be null".to_string(),
                             )));
                         };
-                        let timestamp = decode_u64(last_path_component).map_err(Error::from)?;
+                        let timestamp = decode_u64(last_path_component)?;
                         let contested_document_resource_vote_poll_bytes =
                             element.into_item_bytes().map_err(Error::from)?;
                         Ok((timestamp, contested_document_resource_vote_poll_bytes))
@@ -455,9 +487,14 @@ impl VotePollsByEndDateDriveQuery {
             &platform_version.drive,
         );
         match query_result {
-            Err(Error::GroveDB(GroveError::PathKeyNotFound(_)))
-            | Err(Error::GroveDB(GroveError::PathNotFound(_)))
-            | Err(Error::GroveDB(GroveError::PathParentLayerNotFound(_))) => {
+            Err(Error::GroveDB(e))
+                if matches!(
+                    e.as_ref(),
+                    GroveError::PathKeyNotFound(_)
+                        | GroveError::PathNotFound(_)
+                        | GroveError::PathParentLayerNotFound(_)
+                ) =>
+            {
                 Ok(QueryResultElements::new())
             }
             _ => {

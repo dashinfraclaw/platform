@@ -1,5 +1,7 @@
 use dapi_grpc::platform::v0::{Proof, ResponseMetadata};
 use dpp::ProtocolError;
+use drive::grovedb::Error as GroveError;
+use drive::query::PathQuery;
 
 /// Errors
 #[derive(Debug, thiserror::Error)]
@@ -20,6 +22,7 @@ pub enum Error {
     #[error("grovedb: {error}")]
     GroveDBError {
         proof_bytes: Vec<u8>,
+        path_query: Option<PathQuery>,
         height: u64,
         time_ms: u64,
         error: String,
@@ -91,35 +94,7 @@ pub enum Error {
 
     /// Context provider error
     #[error("context provider error: {0}")]
-    ContextProviderError(#[from] ContextProviderError),
-}
-
-/// Errors returned by the context provider
-#[derive(Debug, thiserror::Error)]
-pub enum ContextProviderError {
-    /// Generic Context provider error
-    #[error("Context provider error: {0}")]
-    Generic(String),
-
-    /// Configuration error
-    #[error("Configuration error: {0}")]
-    Config(String),
-
-    /// Data contract is invalid or not found, or some error occurred during data contract retrieval
-    #[error("cannot get data contract: {0}")]
-    DataContractFailure(String),
-
-    /// Provided quorum is invalid
-    #[error("invalid quorum: {0}")]
-    InvalidQuorum(String),
-
-    /// Core Fork Error
-    #[error("activation fork error: {0}")]
-    ActivationForkError(String),
-
-    /// Async error, eg. when tokio runtime fails
-    #[error("async error: {0}")]
-    AsyncError(String),
+    ContextProviderError(#[from] dash_context_provider::ContextProviderError),
 }
 
 impl From<drive::error::Error> for Error {
@@ -146,15 +121,24 @@ impl<O> MapGroveDbError<O> for Result<O, drive::error::Error> {
     fn map_drive_error(self, proof: &Proof, metadata: &ResponseMetadata) -> Result<O, Error> {
         match self {
             Ok(o) => Ok(o),
-            Err(e) => match e {
-                drive::error::Error::GroveDB(e) => Err(Error::GroveDBError {
+
+            Err(drive::error::Error::GroveDB(grove_err)) => {
+                // If InvalidProof error is returned, extract the path query from it
+                let maybe_query = match grove_err.as_ref() {
+                    GroveError::InvalidProof(path_query, ..) => Some(path_query.clone()),
+                    _ => None,
+                };
+
+                Err(Error::GroveDBError {
                     proof_bytes: proof.grovedb_proof.clone(),
+                    path_query: maybe_query,
                     height: metadata.height,
                     time_ms: metadata.time_ms,
-                    error: e.to_string(),
-                }),
-                _ => Err(e.into()),
-            },
+                    error: grove_err.to_string(),
+                })
+            }
+
+            Err(other) => Err(other.into()),
         }
     }
 }

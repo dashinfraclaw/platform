@@ -24,13 +24,13 @@ impl Drive {
     ///
     /// # Type Parameters
     /// - `T`: The output container type that implements `FromIterator`. This is used to collect the verified action information
-    ///        as pairs of [`Identifier`] and [`GroupAction`].
+    ///   as pairs of [`Identifier`] and [`GroupAction`].
     ///
     /// # Arguments
     /// - `proof`: A byte slice containing the cryptographic proof for the active_action information.
     /// - `contract_id`: The identifier of the contract whose active_action information is being verified.
     /// - `start_active_action_contract_position`: An optional starting position for the active_action query, combined with a [`StartAtIncluded`] flag
-    ///                                     to indicate whether the start position is inclusive.
+    ///   to indicate whether the start position is inclusive.
     /// - `limit`: An optional limit on the number of active_actions to verify.
     /// - `verify_subset_of_proof`: A boolean flag indicating whether to verify only a subset of the proof (useful for optimizations).
     /// - `platform_version`: A reference to the platform version, used to determine the appropriate versioned implementation.
@@ -44,6 +44,7 @@ impl Drive {
     /// - [`Error::Proof`]: If the proof is invalid, corrupted, or contains unexpected data structures.
     /// - [`Error::Drive(DriveError::UnknownVersionMismatch)`]: If the method is called with an unsupported platform version.
     /// - Any other errors propagated from the versioned implementation.
+    #[allow(clippy::too_many_arguments)]
     pub fn verify_action_infos_in_contract<T: FromIterator<(Identifier, GroupAction)>>(
         proof: &[u8],
         contract_id: Identifier,

@@ -18,6 +18,8 @@ use crate::tokens::errors::TokenError;
 use crate::ProtocolError;
 use std::collections::BTreeMap;
 
+use super::EMPTY_KEYWORDS;
+
 pub mod v0;
 pub mod v1;
 
@@ -33,6 +35,13 @@ impl DataContractV0Getters for DataContract {
         match self {
             DataContract::V0(v0) => v0.id_ref(),
             DataContract::V1(v1) => v1.id_ref(),
+        }
+    }
+
+    fn system_version_type(&self) -> u16 {
+        match self {
+            DataContract::V0(_) => 0,
+            DataContract::V1(_) => 1,
         }
     }
 
@@ -67,14 +76,14 @@ impl DataContractV0Getters for DataContract {
         }
     }
 
-    fn document_type_for_name(&self, name: &str) -> Result<DocumentTypeRef, DataContractError> {
+    fn document_type_for_name(&self, name: &str) -> Result<DocumentTypeRef<'_>, DataContractError> {
         match self {
             DataContract::V0(v0) => v0.document_type_for_name(name),
             DataContract::V1(v1) => v1.document_type_for_name(name),
         }
     }
 
-    fn document_type_optional_for_name(&self, name: &str) -> Option<DocumentTypeRef> {
+    fn document_type_optional_for_name(&self, name: &str) -> Option<DocumentTypeRef<'_>> {
         match self {
             DataContract::V0(v0) => v0.document_type_optional_for_name(name),
             DataContract::V1(v1) => v1.document_type_optional_for_name(name),
@@ -171,16 +180,6 @@ impl DataContractV0Setters for DataContract {
 /// Implementing DataContractV1Getters for DataContract
 impl DataContractV1Getters for DataContract {
     /// Returns a reference to the groups map.
-    fn group(&self, position: GroupContractPosition) -> Result<&Group, ProtocolError> {
-        match self {
-            DataContract::V0(_) => Err(ProtocolError::GroupNotFound(
-                "There can not be a group in v0 data contracts".to_string(),
-            )),
-            DataContract::V1(v1) => v1.group(position),
-        }
-    }
-
-    /// Returns a reference to the groups map.
     fn groups(&self) -> &BTreeMap<GroupContractPosition, Group> {
         match self {
             DataContract::V0(_) => &EMPTY_GROUPS,
@@ -265,6 +264,34 @@ impl DataContractV1Getters for DataContract {
         match self {
             DataContract::V0(_) => None,
             DataContract::V1(v1) => v1.token_id(position),
+        }
+    }
+
+    fn keywords(&self) -> &Vec<String> {
+        match self {
+            DataContract::V0(_) => &EMPTY_KEYWORDS,
+            DataContract::V1(v1) => &v1.keywords,
+        }
+    }
+
+    fn keywords_mut(&mut self) -> Option<&mut Vec<String>> {
+        match self {
+            DataContract::V0(_) => None,
+            DataContract::V1(v1) => Some(&mut v1.keywords),
+        }
+    }
+
+    fn description(&self) -> Option<&String> {
+        match self {
+            DataContract::V0(_) => None,
+            DataContract::V1(v1) => v1.description.as_ref(),
+        }
+    }
+
+    fn description_mut(&mut self) -> Option<&mut String> {
+        match self {
+            DataContract::V0(_) => None,
+            DataContract::V1(v1) => v1.description.as_mut(),
         }
     }
 
@@ -397,6 +424,20 @@ impl DataContractV1Setters for DataContract {
     fn set_updated_at_epoch(&mut self, epoch: Option<EpochIndex>) {
         if let DataContract::V1(v1) = self {
             v1.updated_at_epoch = epoch;
+        }
+    }
+
+    /// Sets the keywords for the contract.
+    fn set_keywords(&mut self, keywords: Vec<String>) {
+        if let DataContract::V1(v1) = self {
+            v1.keywords = keywords;
+        }
+    }
+
+    /// Sets the description for the contract.
+    fn set_description(&mut self, description: Option<String>) {
+        if let DataContract::V1(v1) = self {
+            v1.description = description;
         }
     }
 }

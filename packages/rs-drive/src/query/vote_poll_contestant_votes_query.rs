@@ -71,7 +71,7 @@ impl ContestedDocumentVotePollVotesDriveQuery {
         drive: &Drive,
         transaction: TransactionArg,
         platform_version: &PlatformVersion,
-    ) -> Result<ResolvedContestedDocumentVotePollVotesDriveQuery, Error> {
+    ) -> Result<ResolvedContestedDocumentVotePollVotesDriveQuery<'_>, Error> {
         let ContestedDocumentVotePollVotesDriveQuery {
             vote_poll,
             contestant_id,
@@ -214,9 +214,16 @@ impl ContestedDocumentVotePollVotesDriveQuery {
             &platform_version.drive,
         );
         match query_result {
-            Err(Error::GroveDB(GroveError::PathKeyNotFound(_)))
-            | Err(Error::GroveDB(GroveError::PathNotFound(_)))
-            | Err(Error::GroveDB(GroveError::PathParentLayerNotFound(_))) => Ok(vec![]),
+            Err(Error::GroveDB(e))
+                if matches!(
+                    e.as_ref(),
+                    GroveError::PathKeyNotFound(_)
+                        | GroveError::PathNotFound(_)
+                        | GroveError::PathParentLayerNotFound(_)
+                ) =>
+            {
+                Ok(vec![])
+            }
             Err(e) => Err(e),
             Ok((query_result_elements, _skipped)) => {
                 let voters = query_result_elements
@@ -251,9 +258,14 @@ impl ContestedDocumentVotePollVotesDriveQuery {
             &platform_version.drive,
         );
         match query_result {
-            Err(Error::GroveDB(GroveError::PathKeyNotFound(_)))
-            | Err(Error::GroveDB(GroveError::PathNotFound(_)))
-            | Err(Error::GroveDB(GroveError::PathParentLayerNotFound(_))) => {
+            Err(Error::GroveDB(e))
+                if matches!(
+                    e.as_ref(),
+                    GroveError::PathKeyNotFound(_)
+                        | GroveError::PathNotFound(_)
+                        | GroveError::PathParentLayerNotFound(_)
+                ) =>
+            {
                 Ok((QueryResultElements::new(), 0))
             }
             _ => {
@@ -282,7 +294,7 @@ pub struct ResolvedContestedDocumentVotePollVotesDriveQuery<'a> {
     pub order_ascending: bool,
 }
 
-impl<'a> ResolvedContestedDocumentVotePollVotesDriveQuery<'a> {
+impl ResolvedContestedDocumentVotePollVotesDriveQuery<'_> {
     /// Operations to construct a path query.
     pub fn construct_path_query(
         &self,

@@ -103,15 +103,6 @@ type PlatformgetEvonodesProposedEpochBlocksByRange = {
   readonly responseType: typeof platform_pb.GetEvonodesProposedEpochBlocksResponse;
 };
 
-type PlatformgetProofs = {
-  readonly methodName: string;
-  readonly service: typeof Platform;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof platform_pb.GetProofsRequest;
-  readonly responseType: typeof platform_pb.GetProofsResponse;
-};
-
 type PlatformgetDataContract = {
   readonly methodName: string;
   readonly service: typeof Platform;
@@ -157,6 +148,15 @@ type PlatformgetIdentityByPublicKeyHash = {
   readonly responseType: typeof platform_pb.GetIdentityByPublicKeyHashResponse;
 };
 
+type PlatformgetIdentityByNonUniquePublicKeyHash = {
+  readonly methodName: string;
+  readonly service: typeof Platform;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof platform_pb.GetIdentityByNonUniquePublicKeyHashRequest;
+  readonly responseType: typeof platform_pb.GetIdentityByNonUniquePublicKeyHashResponse;
+};
+
 type PlatformwaitForStateTransitionResult = {
   readonly methodName: string;
   readonly service: typeof Platform;
@@ -200,6 +200,15 @@ type PlatformgetEpochsInfo = {
   readonly responseStream: false;
   readonly requestType: typeof platform_pb.GetEpochsInfoRequest;
   readonly responseType: typeof platform_pb.GetEpochsInfoResponse;
+};
+
+type PlatformgetFinalizedEpochInfos = {
+  readonly methodName: string;
+  readonly service: typeof Platform;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof platform_pb.GetFinalizedEpochInfosRequest;
+  readonly responseType: typeof platform_pb.GetFinalizedEpochInfosResponse;
 };
 
 type PlatformgetContestedResources = {
@@ -337,6 +346,24 @@ type PlatformgetTokenStatuses = {
   readonly responseType: typeof platform_pb.GetTokenStatusesResponse;
 };
 
+type PlatformgetTokenDirectPurchasePrices = {
+  readonly methodName: string;
+  readonly service: typeof Platform;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof platform_pb.GetTokenDirectPurchasePricesRequest;
+  readonly responseType: typeof platform_pb.GetTokenDirectPurchasePricesResponse;
+};
+
+type PlatformgetTokenContractInfo = {
+  readonly methodName: string;
+  readonly service: typeof Platform;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof platform_pb.GetTokenContractInfoRequest;
+  readonly responseType: typeof platform_pb.GetTokenContractInfoResponse;
+};
+
 type PlatformgetTokenPreProgrammedDistributions = {
   readonly methodName: string;
   readonly service: typeof Platform;
@@ -344,6 +371,15 @@ type PlatformgetTokenPreProgrammedDistributions = {
   readonly responseStream: false;
   readonly requestType: typeof platform_pb.GetTokenPreProgrammedDistributionsRequest;
   readonly responseType: typeof platform_pb.GetTokenPreProgrammedDistributionsResponse;
+};
+
+type PlatformgetTokenPerpetualDistributionLastClaim = {
+  readonly methodName: string;
+  readonly service: typeof Platform;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof platform_pb.GetTokenPerpetualDistributionLastClaimRequest;
+  readonly responseType: typeof platform_pb.GetTokenPerpetualDistributionLastClaimResponse;
 };
 
 type PlatformgetTokenTotalSupply = {
@@ -391,6 +427,42 @@ type PlatformgetGroupActionSigners = {
   readonly responseType: typeof platform_pb.GetGroupActionSignersResponse;
 };
 
+type PlatformgetAddressInfo = {
+  readonly methodName: string;
+  readonly service: typeof Platform;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof platform_pb.GetAddressInfoRequest;
+  readonly responseType: typeof platform_pb.GetAddressInfoResponse;
+};
+
+type PlatformgetAddressesInfos = {
+  readonly methodName: string;
+  readonly service: typeof Platform;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof platform_pb.GetAddressesInfosRequest;
+  readonly responseType: typeof platform_pb.GetAddressesInfosResponse;
+};
+
+type PlatformgetAddressesTrunkState = {
+  readonly methodName: string;
+  readonly service: typeof Platform;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof platform_pb.GetAddressesTrunkStateRequest;
+  readonly responseType: typeof platform_pb.GetAddressesTrunkStateResponse;
+};
+
+type PlatformgetAddressesBranchState = {
+  readonly methodName: string;
+  readonly service: typeof Platform;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof platform_pb.GetAddressesBranchStateRequest;
+  readonly responseType: typeof platform_pb.GetAddressesBranchStateResponse;
+};
+
 export class Platform {
   static readonly serviceName: string;
   static readonly broadcastStateTransition: PlatformbroadcastStateTransition;
@@ -404,17 +476,18 @@ export class Platform {
   static readonly getIdentityBalanceAndRevision: PlatformgetIdentityBalanceAndRevision;
   static readonly getEvonodesProposedEpochBlocksByIds: PlatformgetEvonodesProposedEpochBlocksByIds;
   static readonly getEvonodesProposedEpochBlocksByRange: PlatformgetEvonodesProposedEpochBlocksByRange;
-  static readonly getProofs: PlatformgetProofs;
   static readonly getDataContract: PlatformgetDataContract;
   static readonly getDataContractHistory: PlatformgetDataContractHistory;
   static readonly getDataContracts: PlatformgetDataContracts;
   static readonly getDocuments: PlatformgetDocuments;
   static readonly getIdentityByPublicKeyHash: PlatformgetIdentityByPublicKeyHash;
+  static readonly getIdentityByNonUniquePublicKeyHash: PlatformgetIdentityByNonUniquePublicKeyHash;
   static readonly waitForStateTransitionResult: PlatformwaitForStateTransitionResult;
   static readonly getConsensusParams: PlatformgetConsensusParams;
   static readonly getProtocolVersionUpgradeState: PlatformgetProtocolVersionUpgradeState;
   static readonly getProtocolVersionUpgradeVoteStatus: PlatformgetProtocolVersionUpgradeVoteStatus;
   static readonly getEpochsInfo: PlatformgetEpochsInfo;
+  static readonly getFinalizedEpochInfos: PlatformgetFinalizedEpochInfos;
   static readonly getContestedResources: PlatformgetContestedResources;
   static readonly getContestedResourceVoteState: PlatformgetContestedResourceVoteState;
   static readonly getContestedResourceVotersForIdentity: PlatformgetContestedResourceVotersForIdentity;
@@ -430,12 +503,19 @@ export class Platform {
   static readonly getIdentityTokenInfos: PlatformgetIdentityTokenInfos;
   static readonly getIdentitiesTokenInfos: PlatformgetIdentitiesTokenInfos;
   static readonly getTokenStatuses: PlatformgetTokenStatuses;
+  static readonly getTokenDirectPurchasePrices: PlatformgetTokenDirectPurchasePrices;
+  static readonly getTokenContractInfo: PlatformgetTokenContractInfo;
   static readonly getTokenPreProgrammedDistributions: PlatformgetTokenPreProgrammedDistributions;
+  static readonly getTokenPerpetualDistributionLastClaim: PlatformgetTokenPerpetualDistributionLastClaim;
   static readonly getTokenTotalSupply: PlatformgetTokenTotalSupply;
   static readonly getGroupInfo: PlatformgetGroupInfo;
   static readonly getGroupInfos: PlatformgetGroupInfos;
   static readonly getGroupActions: PlatformgetGroupActions;
   static readonly getGroupActionSigners: PlatformgetGroupActionSigners;
+  static readonly getAddressInfo: PlatformgetAddressInfo;
+  static readonly getAddressesInfos: PlatformgetAddressesInfos;
+  static readonly getAddressesTrunkState: PlatformgetAddressesTrunkState;
+  static readonly getAddressesBranchState: PlatformgetAddressesBranchState;
 }
 
 export type ServiceError = { message: string, code: number; metadata: grpc.Metadata }
@@ -569,15 +649,6 @@ export class PlatformClient {
     requestMessage: platform_pb.GetEvonodesProposedEpochBlocksByRangeRequest,
     callback: (error: ServiceError|null, responseMessage: platform_pb.GetEvonodesProposedEpochBlocksResponse|null) => void
   ): UnaryResponse;
-  getProofs(
-    requestMessage: platform_pb.GetProofsRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: platform_pb.GetProofsResponse|null) => void
-  ): UnaryResponse;
-  getProofs(
-    requestMessage: platform_pb.GetProofsRequest,
-    callback: (error: ServiceError|null, responseMessage: platform_pb.GetProofsResponse|null) => void
-  ): UnaryResponse;
   getDataContract(
     requestMessage: platform_pb.GetDataContractRequest,
     metadata: grpc.Metadata,
@@ -623,6 +694,15 @@ export class PlatformClient {
     requestMessage: platform_pb.GetIdentityByPublicKeyHashRequest,
     callback: (error: ServiceError|null, responseMessage: platform_pb.GetIdentityByPublicKeyHashResponse|null) => void
   ): UnaryResponse;
+  getIdentityByNonUniquePublicKeyHash(
+    requestMessage: platform_pb.GetIdentityByNonUniquePublicKeyHashRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: platform_pb.GetIdentityByNonUniquePublicKeyHashResponse|null) => void
+  ): UnaryResponse;
+  getIdentityByNonUniquePublicKeyHash(
+    requestMessage: platform_pb.GetIdentityByNonUniquePublicKeyHashRequest,
+    callback: (error: ServiceError|null, responseMessage: platform_pb.GetIdentityByNonUniquePublicKeyHashResponse|null) => void
+  ): UnaryResponse;
   waitForStateTransitionResult(
     requestMessage: platform_pb.WaitForStateTransitionResultRequest,
     metadata: grpc.Metadata,
@@ -667,6 +747,15 @@ export class PlatformClient {
   getEpochsInfo(
     requestMessage: platform_pb.GetEpochsInfoRequest,
     callback: (error: ServiceError|null, responseMessage: platform_pb.GetEpochsInfoResponse|null) => void
+  ): UnaryResponse;
+  getFinalizedEpochInfos(
+    requestMessage: platform_pb.GetFinalizedEpochInfosRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: platform_pb.GetFinalizedEpochInfosResponse|null) => void
+  ): UnaryResponse;
+  getFinalizedEpochInfos(
+    requestMessage: platform_pb.GetFinalizedEpochInfosRequest,
+    callback: (error: ServiceError|null, responseMessage: platform_pb.GetFinalizedEpochInfosResponse|null) => void
   ): UnaryResponse;
   getContestedResources(
     requestMessage: platform_pb.GetContestedResourcesRequest,
@@ -803,6 +892,24 @@ export class PlatformClient {
     requestMessage: platform_pb.GetTokenStatusesRequest,
     callback: (error: ServiceError|null, responseMessage: platform_pb.GetTokenStatusesResponse|null) => void
   ): UnaryResponse;
+  getTokenDirectPurchasePrices(
+    requestMessage: platform_pb.GetTokenDirectPurchasePricesRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: platform_pb.GetTokenDirectPurchasePricesResponse|null) => void
+  ): UnaryResponse;
+  getTokenDirectPurchasePrices(
+    requestMessage: platform_pb.GetTokenDirectPurchasePricesRequest,
+    callback: (error: ServiceError|null, responseMessage: platform_pb.GetTokenDirectPurchasePricesResponse|null) => void
+  ): UnaryResponse;
+  getTokenContractInfo(
+    requestMessage: platform_pb.GetTokenContractInfoRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: platform_pb.GetTokenContractInfoResponse|null) => void
+  ): UnaryResponse;
+  getTokenContractInfo(
+    requestMessage: platform_pb.GetTokenContractInfoRequest,
+    callback: (error: ServiceError|null, responseMessage: platform_pb.GetTokenContractInfoResponse|null) => void
+  ): UnaryResponse;
   getTokenPreProgrammedDistributions(
     requestMessage: platform_pb.GetTokenPreProgrammedDistributionsRequest,
     metadata: grpc.Metadata,
@@ -811,6 +918,15 @@ export class PlatformClient {
   getTokenPreProgrammedDistributions(
     requestMessage: platform_pb.GetTokenPreProgrammedDistributionsRequest,
     callback: (error: ServiceError|null, responseMessage: platform_pb.GetTokenPreProgrammedDistributionsResponse|null) => void
+  ): UnaryResponse;
+  getTokenPerpetualDistributionLastClaim(
+    requestMessage: platform_pb.GetTokenPerpetualDistributionLastClaimRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: platform_pb.GetTokenPerpetualDistributionLastClaimResponse|null) => void
+  ): UnaryResponse;
+  getTokenPerpetualDistributionLastClaim(
+    requestMessage: platform_pb.GetTokenPerpetualDistributionLastClaimRequest,
+    callback: (error: ServiceError|null, responseMessage: platform_pb.GetTokenPerpetualDistributionLastClaimResponse|null) => void
   ): UnaryResponse;
   getTokenTotalSupply(
     requestMessage: platform_pb.GetTokenTotalSupplyRequest,
@@ -856,6 +972,42 @@ export class PlatformClient {
   getGroupActionSigners(
     requestMessage: platform_pb.GetGroupActionSignersRequest,
     callback: (error: ServiceError|null, responseMessage: platform_pb.GetGroupActionSignersResponse|null) => void
+  ): UnaryResponse;
+  getAddressInfo(
+    requestMessage: platform_pb.GetAddressInfoRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: platform_pb.GetAddressInfoResponse|null) => void
+  ): UnaryResponse;
+  getAddressInfo(
+    requestMessage: platform_pb.GetAddressInfoRequest,
+    callback: (error: ServiceError|null, responseMessage: platform_pb.GetAddressInfoResponse|null) => void
+  ): UnaryResponse;
+  getAddressesInfos(
+    requestMessage: platform_pb.GetAddressesInfosRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: platform_pb.GetAddressesInfosResponse|null) => void
+  ): UnaryResponse;
+  getAddressesInfos(
+    requestMessage: platform_pb.GetAddressesInfosRequest,
+    callback: (error: ServiceError|null, responseMessage: platform_pb.GetAddressesInfosResponse|null) => void
+  ): UnaryResponse;
+  getAddressesTrunkState(
+    requestMessage: platform_pb.GetAddressesTrunkStateRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: platform_pb.GetAddressesTrunkStateResponse|null) => void
+  ): UnaryResponse;
+  getAddressesTrunkState(
+    requestMessage: platform_pb.GetAddressesTrunkStateRequest,
+    callback: (error: ServiceError|null, responseMessage: platform_pb.GetAddressesTrunkStateResponse|null) => void
+  ): UnaryResponse;
+  getAddressesBranchState(
+    requestMessage: platform_pb.GetAddressesBranchStateRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: platform_pb.GetAddressesBranchStateResponse|null) => void
+  ): UnaryResponse;
+  getAddressesBranchState(
+    requestMessage: platform_pb.GetAddressesBranchStateRequest,
+    callback: (error: ServiceError|null, responseMessage: platform_pb.GetAddressesBranchStateResponse|null) => void
   ): UnaryResponse;
 }
 

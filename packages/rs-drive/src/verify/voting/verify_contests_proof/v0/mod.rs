@@ -9,7 +9,7 @@ use crate::error::drive::DriveError;
 use crate::query::vote_polls_by_document_type_query::ResolvedVotePollsByDocumentTypeQuery;
 use dpp::version::PlatformVersion;
 
-impl<'a> ResolvedVotePollsByDocumentTypeQuery<'a> {
+impl ResolvedVotePollsByDocumentTypeQuery<'_> {
     /// Verifies a proof for a collection of documents.
     ///
     /// This function takes a slice of bytes `proof` containing a serialized proof,
@@ -63,7 +63,7 @@ impl<'a> ResolvedVotePollsByDocumentTypeQuery<'a> {
                             key.as_slice(),
                             platform_version,
                         )
-                        .map_err(Error::Protocol)
+                        .map_err(Error::from)
                 } else if path.len() < result_path_index.unwrap() {
                     Err(Error::Drive(DriveError::CorruptedCodeExecution(
                         "the path length should always be bigger or equal to the result path index",
@@ -79,7 +79,7 @@ impl<'a> ResolvedVotePollsByDocumentTypeQuery<'a> {
                             inner_path_value_bytes.as_slice(),
                             platform_version,
                         )
-                        .map_err(Error::Protocol)
+                        .map_err(Error::from)
                 }
             })
             .collect::<Result<Vec<Value>, Error>>()?;

@@ -82,9 +82,10 @@ pub struct MimicExecuteBlockOptions {
     pub independent_process_proposal_verification: bool,
 }
 
-impl<'a, C: CoreRPCLike> FullAbciApplication<'a, C> {
+impl<C: CoreRPCLike> FullAbciApplication<'_, C> {
     /// Execute a block with various state transitions
     /// Returns the withdrawal transactions that were signed in the block
+    #[allow(clippy::too_many_arguments)]
     pub fn mimic_execute_block(
         &self,
         proposer_pro_tx_hash: [u8; 32],
@@ -149,7 +150,7 @@ impl<'a, C: CoreRPCLike> FullAbciApplication<'a, C> {
             local_last_commit: None,
             misbehavior: vec![],
             height: height as i64,
-            time: Some(time.clone()),
+            time: Some(time),
             next_validators_hash: next_validators_hash.to_vec(),
             round: round as i32,
             core_chain_locked_height: core_height,
@@ -217,20 +218,38 @@ impl<'a, C: CoreRPCLike> FullAbciApplication<'a, C> {
             }
         })?;
 
-        let state_transactions_to_process = tx_records
+        assert_eq!(
+            state_transitions.len(),
+            tx_records.len(),
+            "Each state transition should have exactly one corresponding tx record"
+        );
+
+        let state_transitions_accepted: (Vec<Vec<u8>>, Vec<StateTransition>) = tx_records
             .into_iter()
-            .filter_map(|tx_record| {
+            .zip(state_transitions)
+            .filter_map(|(tx_record, st)| {
                 if tx_record.action == TxAction::Removed as i32
                     || tx_record.action == TxAction::Delayed as i32
                 {
                     None
                 } else {
-                    Some(tx_record.tx)
+                    Some((tx_record.tx, st))
                 }
             })
-            .collect::<Vec<_>>();
+            .unzip();
 
-        let state_transaction_results = state_transitions.into_iter().zip(tx_results).collect();
+        assert_eq!(
+            state_transitions_accepted.1.len(),
+            tx_results.len(),
+            "Each accepted state transition should have exactly one corresponding tx result"
+        );
+
+        let state_transactions_to_process = state_transitions_accepted.0;
+        let state_transaction_results = state_transitions_accepted
+            .1
+            .into_iter()
+            .zip(tx_results)
+            .collect();
 
         // PROCESS
 

@@ -4,6 +4,7 @@ mod identity_signed;
 #[cfg(feature = "state-transition-json-conversion")]
 mod json_conversion;
 pub mod methods;
+mod state_transition_estimated_fee_validation;
 mod state_transition_like;
 mod v0;
 #[cfg(feature = "state-transition-value-conversion")]
@@ -159,7 +160,9 @@ mod test {
     use crate::data_contract::conversion::value::v0::DataContractValueConversionMethodsV0;
     use crate::state_transition::data_contract_create_transition::accessors::DataContractCreateTransitionAccessorsV0;
     use crate::state_transition::traits::StateTransitionLike;
-    use crate::state_transition::{StateTransitionType, StateTransitionValueConvert};
+    use crate::state_transition::{
+        StateTransitionOwned, StateTransitionType, StateTransitionValueConvert,
+    };
     use crate::tests::fixtures::get_data_contract_fixture;
 
     use crate::version::LATEST_PLATFORM_VERSION;
@@ -175,18 +178,7 @@ mod test {
 
         let state_transition = DataContractCreateTransition::from_object(
             Value::from([
-                (
-                    STATE_TRANSITION_PROTOCOL_VERSION,
-                    Value::U16(
-                        LATEST_PLATFORM_VERSION
-                            .drive_abci
-                            .validation_and_processing
-                            .state_transitions
-                            .contract_create_state_transition
-                            .basic_structure
-                            .unwrap(),
-                    ),
-                ),
+                (STATE_TRANSITION_PROTOCOL_VERSION, Value::U16(0)),
                 (
                     IDENTITY_NONCE,
                     Value::U64(created_data_contract.identity_nonce()),

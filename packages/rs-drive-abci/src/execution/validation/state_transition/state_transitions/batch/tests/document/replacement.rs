@@ -5,6 +5,8 @@ mod replacement_tests {
     use crate::test::helpers::fast_forward_to_block::fast_forward_to_block;
     use dpp::identifier::Identifier;
     use dpp::prelude::IdentityNonce;
+    use dpp::tokens::token_payment_info::v0::TokenPaymentInfoV0;
+    use dpp::tokens::token_payment_info::TokenPaymentInfo;
     use std::collections::BTreeMap;
 
     #[test]
@@ -61,10 +63,9 @@ mod replacement_tests {
                 &key,
                 2,
                 0,
+                None,
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -104,10 +105,9 @@ mod replacement_tests {
                 &key,
                 3,
                 0,
+                None,
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -213,10 +213,9 @@ mod replacement_tests {
                 &key,
                 2,
                 0,
+                None,
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -269,10 +268,9 @@ mod replacement_tests {
                     &key,
                     3 + i as IdentityNonce,
                     0,
+                    None,
                     &signer,
                     platform_version,
-                    None,
-                    None,
                     None,
                 )
                 .expect("expect to create documents batch transition");
@@ -559,10 +557,9 @@ mod replacement_tests {
                 &key,
                 2,
                 0,
+                None,
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -602,10 +599,9 @@ mod replacement_tests {
                 &key,
                 3,
                 0,
+                None,
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -689,10 +685,9 @@ mod replacement_tests {
                 &key,
                 2,
                 0,
+                None,
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -784,10 +779,9 @@ mod replacement_tests {
                 &key,
                 3,
                 0,
+                None,
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition for transfer");
@@ -891,10 +885,9 @@ mod replacement_tests {
                 &key,
                 3,
                 0,
+                None,
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -994,10 +987,9 @@ mod replacement_tests {
                 &key,
                 2,
                 0,
+                None,
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -1058,10 +1050,9 @@ mod replacement_tests {
                 &key,
                 3,
                 0,
+                None,
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -1077,10 +1068,9 @@ mod replacement_tests {
                 &key,
                 4,
                 0,
+                None,
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -1210,10 +1200,9 @@ mod replacement_tests {
                 &key,
                 2,
                 0,
+                None,
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -1278,10 +1267,9 @@ mod replacement_tests {
                 &key,
                 3,
                 0,
+                None,
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -1297,10 +1285,9 @@ mod replacement_tests {
                 &key,
                 4,
                 0,
+                None,
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -1467,10 +1454,9 @@ mod replacement_tests {
                 &key,
                 2,
                 0,
+                None,
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -1535,10 +1521,9 @@ mod replacement_tests {
                 &key,
                 3,
                 0,
+                None,
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -1554,10 +1539,9 @@ mod replacement_tests {
                 &key,
                 4,
                 0,
+                None,
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -1728,10 +1712,9 @@ mod replacement_tests {
                 &key,
                 2,
                 0,
+                None,
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -1796,10 +1779,9 @@ mod replacement_tests {
                 &key,
                 3,
                 0,
+                None,
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -1815,10 +1797,9 @@ mod replacement_tests {
                 &key,
                 4,
                 0,
+                None,
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -1946,7 +1927,7 @@ mod replacement_tests {
         let (creator, signer, key) = setup_identity(&mut platform, 234, dash_to_credits!(0.1));
 
         let (contract, gold_token_id, gas_token_id) =
-            create_card_game_token_contract_with_owner_identity(
+            create_card_game_internal_token_contract_with_owner_identity_burn_tokens(
                 &mut platform,
                 contract_owner_id.id(),
                 platform_version,
@@ -1961,8 +1942,8 @@ mod replacement_tests {
 
         assert_eq!(contract.tokens().len(), 2);
 
-        add_tokens_to_identity(&mut platform, gold_token_id.into(), creator.id(), 15);
-        add_tokens_to_identity(&mut platform, gas_token_id.into(), creator.id(), 5);
+        add_tokens_to_identity(&mut platform, gold_token_id, creator.id(), 15);
+        add_tokens_to_identity(&mut platform, gas_token_id, creator.id(), 5);
 
         let card_document_type = contract
             .document_type_for_name("card")
@@ -1997,10 +1978,15 @@ mod replacement_tests {
                 &key,
                 2,
                 0,
+                Some(TokenPaymentInfo::V0(TokenPaymentInfoV0 {
+                    payment_token_contract_id: None,
+                    token_contract_position: 0,
+                    minimum_token_cost: None,
+                    maximum_token_cost: Some(10),
+                    gas_fees_paid_by: Default::default(),
+                })),
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -2026,7 +2012,7 @@ mod replacement_tests {
 
         assert_matches!(
             processing_result.execution_results().as_slice(),
-            [StateTransitionExecutionResult::SuccessfulExecution(_, _)]
+            [StateTransitionExecutionResult::SuccessfulExecution { .. }]
         );
 
         platform
@@ -2043,10 +2029,15 @@ mod replacement_tests {
                 &key,
                 3,
                 0,
+                Some(TokenPaymentInfo::V0(TokenPaymentInfoV0 {
+                    payment_token_contract_id: None,
+                    token_contract_position: 1,
+                    minimum_token_cost: None,
+                    maximum_token_cost: Some(2),
+                    gas_fees_paid_by: Default::default(),
+                })),
                 &signer,
                 platform_version,
-                None,
-                None,
                 None,
             )
             .expect("expect to create documents batch transition");
@@ -2079,7 +2070,7 @@ mod replacement_tests {
 
         assert_matches!(
             processing_result.execution_results().as_slice(),
-            [StateTransitionExecutionResult::SuccessfulExecution(_, _)]
+            [StateTransitionExecutionResult::SuccessfulExecution { .. }]
         );
 
         let token_balance = platform

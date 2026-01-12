@@ -11,7 +11,6 @@
 
 <p align="center">
   <a href="https://github.com/dashpay/platform/actions/workflows/tests.yml"><img alt="GitHub CI Status" src="https://github.com/dashpay/platform/actions/workflows/tests.yml/badge.svg"></a>
-  <a href="https://chat.dashdevs.org/"><img alt="Devs Chat" src="https://img.shields.io/badge/discord-Dev_chat-738adb"></a>
   <a href="https://discordapp.com/invite/PXbUxJB"><img alt="General Chat" src="https://img.shields.io/badge/discord-General_chat-738adb"></a>
   <a href="https://twitter.com/intent/follow?screen_name=Dashpay"><img alt="Follow on Twitter" src="https://img.shields.io/twitter/follow/Dashpay.svg?style=social&label=Follow"></a>
 </p>
@@ -22,8 +21,8 @@ the Dash P2P network into a cloud that developers can integrate with their
 applications.
 
 If you are looking for how to contribute to the project or need any help with
-building an app on the Dash Platform - message us on the [Devs
-Discord](https://chat.dashdevs.org/)!
+building an app on the Dash Platform - message us on the [Dash
+Discord](https://discordapp.com/invite/PXbUxJB)!
 
 ## Intro
 
@@ -51,20 +50,21 @@ this repository may be used on the following networks:
 - Install prerequisites:
   - [node.js](https://nodejs.org/) v20
   - [docker](https://docs.docker.com/get-docker/) v20.10+
-  - [rust](https://www.rust-lang.org/tools/install) v1.85+, with wasm32 target (`rustup target add wasm32-unknown-unknown`)
-  - [protoc - protobuf compiler](https://github.com/protocolbuffers/protobuf/releases) v27.3+
+  - [rust](https://www.rust-lang.org/tools/install) v1.92+, with wasm32 target (`rustup target add wasm32-unknown-unknown`)
+  - [protoc - protobuf compiler](https://github.com/protocolbuffers/protobuf/releases) v32.0+
     - if needed, set PROTOC environment variable to location of `protoc` binary
-  - [wasm-bingen toolchain](https://rustwasm.github.io/wasm-bindgen/):
+  - [wasm-bindgen toolchain](https://rustwasm.github.io/wasm-bindgen/):
     - **IMPORTANT (OSX only)**: built-in `llvm` on OSX does not work, needs to be installed from brew:
       - `brew install llvm`
       - LLVM installed from brew is keg only, and path to it must be provided in the profile file,
         in terminal run `echo 'export PATH="/opt/homebrew/opt/llvm/bin:$PATH"' >> ~/.zshrc` or `echo 'export PATH="/opt/homebrew/opt/llvm/bin:$PATH"' >> ~/.bash_profile` depending on your default shell.
         You can find your default shell with `echo $SHELL`
       - Reload your shell with `source ~/.zshrc` or `source ~/.bash_profile`
-    - `cargo install wasm-bindgen-cli@0.2.100`
+    - `cargo install wasm-bindgen-cli@0.2.103`
       - *double-check that wasm-bindgen-cli version above matches wasm-bindgen version in Cargo.lock file*
       - *Depending on system, additional packages may need to be installed as a prerequisite for wasm-bindgen-cli. If anything is missing, installation will error and prompt what packages are missing (i.e. clang, llvm, libssl-dev)*
   - essential build tools - example for Debian/Ubuntu: `apt install -y build-essential libssl-dev pkg-config clang cmake llvm`
+  - wasm-pack: `curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh`
 - Run `corepack enable` to enable [corepack](https://nodejs.org/dist/latest/docs/api/corepack.html) and install yarn
 - Run `yarn setup` to install dependencies and configure and build all packages
 - Run `yarn start` to start the local dev environment built from the sources
@@ -81,8 +81,7 @@ this repository may be used on the following networks:
 
 ### Looking for support?
 
-For questions and support, please join our [Devs
-Discord](https://chat.dashdevs.org/)
+For questions and support, please join our [Dash Discord](https://discordapp.com/invite/PXbUxJB)
 
 ### Where are the docs?
 
@@ -100,9 +99,10 @@ issue template at [platform/issues](https://github.com/dashpay/platform/issues)!
 
 Check out:
 
-- Our [Developers Discord](https://chat.dashdevs.org/)
+- Our [Dash Discord](https://discordapp.com/invite/PXbUxJB)
 - Our [CONTRIBUTING.md](CONTRIBUTING.md) to get started with setting up the
   repo.
+- Our concise contributor guide: [AGENTS.md](AGENTS.md) (repo structure, commands, style, tests).
 - Our [news](https://www.dash.org/news/) and [blog](https://www.dash.org/blog/) which contains release posts and
   explanations.
 

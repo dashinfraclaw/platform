@@ -30,6 +30,10 @@ impl DataContractV0Getters for DataContractV1 {
         &self.id
     }
 
+    fn system_version_type(&self) -> u16 {
+        1
+    }
+
     fn version(&self) -> u32 {
         self.version
     }
@@ -58,7 +62,7 @@ impl DataContractV0Getters for DataContractV1 {
         })
     }
 
-    fn document_type_for_name(&self, name: &str) -> Result<DocumentTypeRef, DataContractError> {
+    fn document_type_for_name(&self, name: &str) -> Result<DocumentTypeRef<'_>, DataContractError> {
         self.document_type_optional_for_name(name).ok_or_else(|| {
             DataContractError::DocumentTypeNotFound(
                 "can not get document type from contract".to_string(),
@@ -66,7 +70,7 @@ impl DataContractV0Getters for DataContractV1 {
         })
     }
 
-    fn document_type_optional_for_name(&self, name: &str) -> Option<DocumentTypeRef> {
+    fn document_type_optional_for_name(&self, name: &str) -> Option<DocumentTypeRef<'_>> {
         self.document_types
             .get(name)
             .map(|document_type| document_type.as_ref())
@@ -77,7 +81,7 @@ impl DataContractV0Getters for DataContractV1 {
     }
 
     fn has_document_type_for_name(&self, name: &str) -> bool {
-        self.document_types.get(name).is_some()
+        self.document_types.contains_key(name)
     }
 
     fn document_types_with_contested_indexes(&self) -> BTreeMap<&DocumentName, &DocumentType> {
@@ -136,16 +140,6 @@ impl DataContractV0Setters for DataContractV1 {
 }
 
 impl DataContractV1Getters for DataContractV1 {
-    fn group(&self, position: GroupContractPosition) -> Result<&Group, ProtocolError> {
-        self.groups
-            .get(&position)
-            .ok_or(ProtocolError::GroupNotFound(format!(
-                "Group not found in contract {} at position {}",
-                self.id(),
-                position
-            )))
-    }
-
     fn groups(&self) -> &BTreeMap<GroupContractPosition, Group> {
         &self.groups
     }
@@ -224,6 +218,26 @@ impl DataContractV1Getters for DataContractV1 {
     fn updated_at_epoch(&self) -> Option<EpochIndex> {
         self.updated_at_epoch
     }
+
+    /// Returns the keywords for the contract.
+    fn keywords(&self) -> &Vec<String> {
+        &self.keywords
+    }
+
+    /// Returns a mutable reference to the keywords for the contract.
+    fn keywords_mut(&mut self) -> Option<&mut Vec<String>> {
+        Some(&mut self.keywords)
+    }
+
+    /// Returns the description of the contract.
+    fn description(&self) -> Option<&String> {
+        self.description.as_ref()
+    }
+
+    /// Returns a mutable reference to the description of the contract.
+    fn description_mut(&mut self) -> Option<&mut String> {
+        self.description.as_mut()
+    }
 }
 
 impl DataContractV1Setters for DataContractV1 {
@@ -271,5 +285,15 @@ impl DataContractV1Setters for DataContractV1 {
     /// Sets the epoch at which the contract was last updated.
     fn set_updated_at_epoch(&mut self, epoch: Option<EpochIndex>) {
         self.updated_at_epoch = epoch;
+    }
+
+    /// Sets the keywords for the contract.
+    fn set_keywords(&mut self, keywords: Vec<String>) {
+        self.keywords = keywords;
+    }
+
+    /// Sets the description for the contract.
+    fn set_description(&mut self, description: Option<String>) {
+        self.description = description;
     }
 }

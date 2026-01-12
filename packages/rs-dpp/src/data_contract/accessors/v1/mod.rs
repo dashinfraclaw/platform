@@ -10,9 +10,6 @@ use platform_value::Identifier;
 use std::collections::BTreeMap;
 
 pub trait DataContractV1Getters: DataContractV0Getters {
-    /// Gets a group at a certain position.
-    fn group(&self, position: GroupContractPosition) -> Result<&Group, ProtocolError>;
-
     /// Returns a reference to the groups map.
     fn groups(&self) -> &BTreeMap<GroupContractPosition, Group>;
 
@@ -63,6 +60,18 @@ pub trait DataContractV1Getters: DataContractV0Getters {
 
     /// Returns the epoch at which the contract was last updated.
     fn updated_at_epoch(&self) -> Option<EpochIndex>;
+
+    /// Returns the keywords for the contract.
+    fn keywords(&self) -> &Vec<String>;
+
+    /// Returns a mutable reference to the keywords for the contract.
+    fn keywords_mut(&mut self) -> Option<&mut Vec<String>>;
+
+    /// Returns the description for the contract.
+    fn description(&self) -> Option<&String>;
+
+    /// Returns a mutable reference to the description for the contract.
+    fn description_mut(&mut self) -> Option<&mut String>;
 }
 
 pub trait DataContractV1Setters: DataContractV0Setters {
@@ -95,4 +104,10 @@ pub trait DataContractV1Setters: DataContractV0Setters {
 
     /// Sets the block height at which the contract was last updated.
     fn set_updated_at_epoch(&mut self, epoch: Option<EpochIndex>);
+
+    /// Sets the keywords for the contract.
+    fn set_keywords(&mut self, keywords: Vec<String>);
+
+    /// Sets the description for the contract.
+    fn set_description(&mut self, description: Option<String>);
 }

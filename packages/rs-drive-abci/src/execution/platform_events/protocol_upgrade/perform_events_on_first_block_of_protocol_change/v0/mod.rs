@@ -1,8 +1,8 @@
 use crate::error::execution::ExecutionError;
 use crate::error::Error;
 use crate::platform_types::platform::Platform;
-use crate::platform_types::platform_state::v0::PlatformStateV0Methods;
 use crate::platform_types::platform_state::PlatformState;
+use crate::platform_types::platform_state::PlatformStateV0Methods;
 use dpp::block::block_info::BlockInfo;
 use dpp::dashcore::hashes::Hash;
 use dpp::data_contracts::SystemDataContract;
@@ -13,6 +13,7 @@ use dpp::system_data_contracts::load_system_data_contract;
 use dpp::version::PlatformVersion;
 use dpp::version::ProtocolVersion;
 use dpp::voting::vote_polls::VotePoll;
+use drive::drive::address_funds::queries::CLEAR_ADDRESS_POOL_U8;
 use drive::drive::balances::TOTAL_TOKEN_SUPPLIES_STORAGE_KEY;
 use drive::drive::identity::key::fetch::{
     IdentityKeysRequest, KeyIDIdentityPublicKeyPairBTreeMap, KeyRequestType,
@@ -22,17 +23,21 @@ use drive::drive::identity::withdrawals::paths::{
     WITHDRAWAL_TRANSACTIONS_SUM_AMOUNT_TREE_KEY,
 };
 use drive::drive::prefunded_specialized_balances::prefunded_specialized_balances_for_voting_path_vec;
+use drive::drive::saved_block_transactions::{
+    ADDRESS_BALANCES_KEY_U8, COMPACTED_ADDRESSES_EXPIRATION_TIME_KEY_U8,
+    COMPACTED_ADDRESS_BALANCES_KEY_U8,
+};
 use drive::drive::system::misc_path;
 use drive::drive::tokens::paths::{
     token_distributions_root_path, token_timed_distributions_path, tokens_root_path,
-    TOKEN_BALANCES_KEY, TOKEN_BLOCK_TIMED_DISTRIBUTIONS_KEY, TOKEN_DISTRIBUTIONS_KEY,
-    TOKEN_EPOCH_TIMED_DISTRIBUTIONS_KEY, TOKEN_IDENTITY_INFO_KEY, TOKEN_MS_TIMED_DISTRIBUTIONS_KEY,
-    TOKEN_PERPETUAL_DISTRIBUTIONS_KEY, TOKEN_PRE_PROGRAMMED_DISTRIBUTIONS_KEY,
-    TOKEN_STATUS_INFO_KEY, TOKEN_TIMED_DISTRIBUTIONS_KEY,
+    TOKEN_BALANCES_KEY, TOKEN_BLOCK_TIMED_DISTRIBUTIONS_KEY, TOKEN_CONTRACT_INFO_KEY,
+    TOKEN_DIRECT_SELL_PRICE_KEY, TOKEN_DISTRIBUTIONS_KEY, TOKEN_EPOCH_TIMED_DISTRIBUTIONS_KEY,
+    TOKEN_IDENTITY_INFO_KEY, TOKEN_MS_TIMED_DISTRIBUTIONS_KEY, TOKEN_PERPETUAL_DISTRIBUTIONS_KEY,
+    TOKEN_PRE_PROGRAMMED_DISTRIBUTIONS_KEY, TOKEN_STATUS_INFO_KEY, TOKEN_TIMED_DISTRIBUTIONS_KEY,
 };
 use drive::drive::votes::paths::vote_end_date_queries_tree_path_vec;
-use drive::drive::RootTree;
-use drive::grovedb::{Element, PathQuery, Query, QueryItem, SizedQuery, Transaction};
+use drive::drive::{Drive, RootTree};
+use drive::grovedb::{Element, PathQuery, Query, QueryItem, SizedQuery, Transaction, TreeType};
 use drive::grovedb_path::SubtreePath;
 use drive::query::QueryResultType;
 use std::collections::HashSet;
@@ -66,6 +71,10 @@ impl<C> Platform<C> {
         previous_protocol_version: ProtocolVersion,
         platform_version: &PlatformVersion,
     ) -> Result<(), Error> {
+        self.drive
+            .cache
+            .system_data_contracts
+            .reload_system_contracts(platform_version)?;
         if previous_protocol_version < 4 && platform_version.protocol_version >= 4 {
             self.transition_to_version_4(
                 platform_state,
@@ -95,6 +104,10 @@ impl<C> Platform<C> {
 
         if previous_protocol_version < 9 && platform_version.protocol_version >= 9 {
             self.transition_to_version_9(block_info, transaction, platform_version)?;
+        }
+
+        if previous_protocol_version < 11 && platform_version.protocol_version >= 11 {
+            self.transition_to_version_11(transaction, platform_version)?;
         }
 
         Ok(())
@@ -283,7 +296,7 @@ impl<C> Platform<C> {
             .map(|element| {
                 let contested_document_resource_vote_poll_bytes = element
                     .into_item_bytes()
-                    .map_err(drive::error::Error::GroveDB)?;
+                    .map_err(drive::error::Error::from)?;
                 let vote_poll =
                     VotePoll::deserialize_from_bytes(&contested_document_resource_vote_poll_bytes)?;
                 match vote_poll {
@@ -357,6 +370,7 @@ impl<C> Platform<C> {
         self.drive.grove_insert_empty_tree(
             SubtreePath::empty(),
             &[RootTree::GroupActions as u8],
+            TreeType::NormalTree,
             Some(transaction),
             None,
             &mut vec![],
@@ -396,6 +410,24 @@ impl<C> Platform<C> {
         self.drive.grove_insert_if_not_exists(
             (&path).into(),
             &[TOKEN_DISTRIBUTIONS_KEY],
+            Element::empty_tree(),
+            Some(transaction),
+            None,
+            &platform_version.drive,
+        )?;
+
+        self.drive.grove_insert_if_not_exists(
+            (&path).into(),
+            &[TOKEN_DIRECT_SELL_PRICE_KEY],
+            Element::empty_tree(),
+            Some(transaction),
+            None,
+            &platform_version.drive,
+        )?;
+
+        self.drive.grove_insert_if_not_exists(
+            (&path).into(),
+            &[TOKEN_CONTRACT_INFO_KEY],
             Element::empty_tree(),
             Some(transaction),
             None,
@@ -475,15 +507,93 @@ impl<C> Platform<C> {
             &platform_version.drive,
         )?;
 
-        let contract =
+        let token_history_contract =
             load_system_data_contract(SystemDataContract::TokenHistory, platform_version)?;
 
         self.drive.insert_contract(
-            &contract,
+            &token_history_contract,
             *block_info,
             true,
             Some(transaction),
             platform_version,
+        )?;
+
+        let search_contract =
+            load_system_data_contract(SystemDataContract::KeywordSearch, platform_version)?;
+
+        self.drive.insert_contract(
+            &search_contract,
+            *block_info,
+            true,
+            Some(transaction),
+            platform_version,
+        )?;
+
+        Ok(())
+    }
+
+    /// We introduced in version 11 Addresses
+    fn transition_to_version_11(
+        &self,
+        transaction: &Transaction,
+        platform_version: &PlatformVersion,
+    ) -> Result<(), Error> {
+        self.drive.grove_insert_if_not_exists(
+            SubtreePath::empty(),
+            &[RootTree::AddressBalances as u8],
+            Element::empty_sum_tree(),
+            Some(transaction),
+            None,
+            &platform_version.drive,
+        )?;
+
+        let path = Drive::addresses_path();
+        self.drive.grove_insert_if_not_exists(
+            path.as_slice().into(),
+            &[CLEAR_ADDRESS_POOL_U8],
+            Element::empty_provable_count_sum_tree(),
+            Some(transaction),
+            None,
+            &platform_version.drive,
+        )?;
+
+        // SavedBlockTransactions for address-based transaction sync
+        self.drive.grove_insert_if_not_exists(
+            SubtreePath::empty(),
+            &[RootTree::SavedBlockTransactions as u8],
+            Element::empty_tree(),
+            Some(transaction),
+            None,
+            &platform_version.drive,
+        )?;
+
+        // Address balances subtree under SavedBlockTransactions
+        let saved_block_path = Drive::saved_block_transactions_path();
+        self.drive.grove_insert_if_not_exists(
+            saved_block_path.as_slice().into(),
+            &[ADDRESS_BALANCES_KEY_U8],
+            Element::empty_count_sum_tree(),
+            Some(transaction),
+            None,
+            &platform_version.drive,
+        )?;
+
+        self.drive.grove_insert_if_not_exists(
+            saved_block_path.as_slice().into(),
+            &[COMPACTED_ADDRESS_BALANCES_KEY_U8],
+            Element::empty_tree(),
+            Some(transaction),
+            None,
+            &platform_version.drive,
+        )?;
+
+        self.drive.grove_insert_if_not_exists(
+            saved_block_path.as_slice().into(),
+            &[COMPACTED_ADDRESSES_EXPIRATION_TIME_KEY_U8],
+            Element::empty_tree(),
+            Some(transaction),
+            None,
+            &platform_version.drive,
         )?;
 
         Ok(())

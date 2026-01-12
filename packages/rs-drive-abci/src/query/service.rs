@@ -2,25 +2,30 @@ use crate::error::query::QueryError;
 use crate::error::Error;
 use crate::metrics::{abci_response_code_metric_label, query_duration_metric};
 use crate::platform_types::platform::Platform;
-use crate::platform_types::platform_state::v0::PlatformStateV0Methods;
 use crate::platform_types::platform_state::PlatformState;
+use crate::platform_types::platform_state::PlatformStateV0Methods;
 use crate::query::QueryValidationResult;
 use crate::rpc::core::DefaultCoreRPC;
 use crate::utils::spawn_blocking_task_with_name_if_supported;
 use async_trait::async_trait;
+use dapi_grpc::drive::v0::drive_internal_server::DriveInternal;
+use dapi_grpc::drive::v0::{GetProofsRequest, GetProofsResponse};
 use dapi_grpc::platform::v0::platform_server::Platform as PlatformService;
 use dapi_grpc::platform::v0::{
-    BroadcastStateTransitionRequest, BroadcastStateTransitionResponse, GetConsensusParamsRequest,
-    GetConsensusParamsResponse, GetContestedResourceIdentityVotesRequest,
-    GetContestedResourceIdentityVotesResponse, GetContestedResourceVoteStateRequest,
-    GetContestedResourceVoteStateResponse, GetContestedResourceVotersForIdentityRequest,
-    GetContestedResourceVotersForIdentityResponse, GetContestedResourcesRequest,
-    GetContestedResourcesResponse, GetCurrentQuorumsInfoRequest, GetCurrentQuorumsInfoResponse,
-    GetDataContractHistoryRequest, GetDataContractHistoryResponse, GetDataContractRequest,
-    GetDataContractResponse, GetDataContractsRequest, GetDataContractsResponse,
-    GetDocumentsRequest, GetDocumentsResponse, GetEpochsInfoRequest, GetEpochsInfoResponse,
-    GetEvonodesProposedEpochBlocksByIdsRequest, GetEvonodesProposedEpochBlocksByRangeRequest,
-    GetEvonodesProposedEpochBlocksResponse, GetGroupActionSignersRequest,
+    BroadcastStateTransitionRequest, BroadcastStateTransitionResponse, GetAddressInfoRequest,
+    GetAddressInfoResponse, GetAddressesBranchStateRequest, GetAddressesBranchStateResponse,
+    GetAddressesInfosRequest, GetAddressesInfosResponse, GetAddressesTrunkStateRequest,
+    GetAddressesTrunkStateResponse, GetConsensusParamsRequest, GetConsensusParamsResponse,
+    GetContestedResourceIdentityVotesRequest, GetContestedResourceIdentityVotesResponse,
+    GetContestedResourceVoteStateRequest, GetContestedResourceVoteStateResponse,
+    GetContestedResourceVotersForIdentityRequest, GetContestedResourceVotersForIdentityResponse,
+    GetContestedResourcesRequest, GetContestedResourcesResponse, GetCurrentQuorumsInfoRequest,
+    GetCurrentQuorumsInfoResponse, GetDataContractHistoryRequest, GetDataContractHistoryResponse,
+    GetDataContractRequest, GetDataContractResponse, GetDataContractsRequest,
+    GetDataContractsResponse, GetDocumentsRequest, GetDocumentsResponse, GetEpochsInfoRequest,
+    GetEpochsInfoResponse, GetEvonodesProposedEpochBlocksByIdsRequest,
+    GetEvonodesProposedEpochBlocksByRangeRequest, GetEvonodesProposedEpochBlocksResponse,
+    GetFinalizedEpochInfosRequest, GetFinalizedEpochInfosResponse, GetGroupActionSignersRequest,
     GetGroupActionSignersResponse, GetGroupActionsRequest, GetGroupActionsResponse,
     GetGroupInfoRequest, GetGroupInfoResponse, GetGroupInfosRequest, GetGroupInfosResponse,
     GetIdentitiesBalancesRequest, GetIdentitiesBalancesResponse, GetIdentitiesContractKeysRequest,
@@ -28,16 +33,21 @@ use dapi_grpc::platform::v0::{
     GetIdentitiesTokenBalancesResponse, GetIdentitiesTokenInfosRequest,
     GetIdentitiesTokenInfosResponse, GetIdentityBalanceAndRevisionRequest,
     GetIdentityBalanceAndRevisionResponse, GetIdentityBalanceRequest, GetIdentityBalanceResponse,
+    GetIdentityByNonUniquePublicKeyHashRequest, GetIdentityByNonUniquePublicKeyHashResponse,
     GetIdentityByPublicKeyHashRequest, GetIdentityByPublicKeyHashResponse,
     GetIdentityContractNonceRequest, GetIdentityContractNonceResponse, GetIdentityKeysRequest,
     GetIdentityKeysResponse, GetIdentityNonceRequest, GetIdentityNonceResponse, GetIdentityRequest,
     GetIdentityResponse, GetIdentityTokenBalancesRequest, GetIdentityTokenBalancesResponse,
     GetIdentityTokenInfosRequest, GetIdentityTokenInfosResponse, GetPathElementsRequest,
     GetPathElementsResponse, GetPrefundedSpecializedBalanceRequest,
-    GetPrefundedSpecializedBalanceResponse, GetProofsRequest, GetProofsResponse,
-    GetProtocolVersionUpgradeStateRequest, GetProtocolVersionUpgradeStateResponse,
-    GetProtocolVersionUpgradeVoteStatusRequest, GetProtocolVersionUpgradeVoteStatusResponse,
-    GetStatusRequest, GetStatusResponse, GetTokenPreProgrammedDistributionsRequest,
+    GetPrefundedSpecializedBalanceResponse, GetProtocolVersionUpgradeStateRequest,
+    GetProtocolVersionUpgradeStateResponse, GetProtocolVersionUpgradeVoteStatusRequest,
+    GetProtocolVersionUpgradeVoteStatusResponse, GetRecentAddressBalanceChangesRequest,
+    GetRecentAddressBalanceChangesResponse, GetRecentCompactedAddressBalanceChangesRequest,
+    GetRecentCompactedAddressBalanceChangesResponse, GetStatusRequest, GetStatusResponse,
+    GetTokenContractInfoRequest, GetTokenContractInfoResponse, GetTokenDirectPurchasePricesRequest,
+    GetTokenDirectPurchasePricesResponse, GetTokenPerpetualDistributionLastClaimRequest,
+    GetTokenPerpetualDistributionLastClaimResponse, GetTokenPreProgrammedDistributionsRequest,
     GetTokenPreProgrammedDistributionsResponse, GetTokenStatusesRequest, GetTokenStatusesResponse,
     GetTokenTotalSupplyRequest, GetTokenTotalSupplyResponse, GetTotalCreditsInPlatformRequest,
     GetTotalCreditsInPlatformResponse, GetVotePollsByEndDateRequest, GetVotePollsByEndDateResponse,
@@ -70,7 +80,7 @@ impl QueryService {
         Self { platform }
     }
 
-    async fn handle_blocking_query<'a, RQ, RS>(
+    async fn handle_blocking_query<RQ, RS>(
         &self,
         request: Request<RQ>,
         query_method: QueryMethod<RQ, RS>,
@@ -339,18 +349,6 @@ impl PlatformService for QueryService {
         .await
     }
 
-    async fn get_proofs(
-        &self,
-        request: Request<GetProofsRequest>,
-    ) -> Result<Response<GetProofsResponse>, Status> {
-        self.handle_blocking_query(
-            request,
-            Platform::<DefaultCoreRPC>::query_proofs,
-            "get_proofs",
-        )
-        .await
-    }
-
     async fn get_data_contract(
         &self,
         request: Request<GetDataContractRequest>,
@@ -407,6 +405,18 @@ impl PlatformService for QueryService {
             request,
             Platform::<DefaultCoreRPC>::query_identity_by_public_key_hash,
             "get_identity_by_public_key_hash",
+        )
+        .await
+    }
+
+    async fn get_identity_by_non_unique_public_key_hash(
+        &self,
+        request: Request<GetIdentityByNonUniquePublicKeyHashRequest>,
+    ) -> Result<Response<GetIdentityByNonUniquePublicKeyHashResponse>, Status> {
+        self.handle_blocking_query(
+            request,
+            Platform::<DefaultCoreRPC>::query_identity_by_non_unique_public_key_hash,
+            "get_identity_by_non_unique_public_key_hash",
         )
         .await
     }
@@ -745,6 +755,141 @@ impl PlatformService for QueryService {
             request,
             Platform::<DefaultCoreRPC>::query_group_action_signers,
             "get_group_action_signers",
+        )
+        .await
+    }
+
+    async fn get_token_direct_purchase_prices(
+        &self,
+        request: Request<GetTokenDirectPurchasePricesRequest>,
+    ) -> Result<Response<GetTokenDirectPurchasePricesResponse>, Status> {
+        self.handle_blocking_query(
+            request,
+            Platform::<DefaultCoreRPC>::query_token_direct_purchase_prices,
+            "get_token_direct_purchase_prices",
+        )
+        .await
+    }
+
+    async fn get_token_contract_info(
+        &self,
+        request: Request<GetTokenContractInfoRequest>,
+    ) -> Result<Response<GetTokenContractInfoResponse>, Status> {
+        self.handle_blocking_query(
+            request,
+            Platform::<DefaultCoreRPC>::query_token_contract_info,
+            "get_token_contract_info",
+        )
+        .await
+    }
+
+    async fn get_token_perpetual_distribution_last_claim(
+        &self,
+        request: Request<GetTokenPerpetualDistributionLastClaimRequest>,
+    ) -> Result<Response<GetTokenPerpetualDistributionLastClaimResponse>, Status> {
+        self.handle_blocking_query(
+            request,
+            Platform::<DefaultCoreRPC>::query_token_perpetual_distribution_last_claim,
+            "get_token_perpetual_distribution_last_claim",
+        )
+        .await
+    }
+
+    async fn get_finalized_epoch_infos(
+        &self,
+        request: Request<GetFinalizedEpochInfosRequest>,
+    ) -> Result<Response<GetFinalizedEpochInfosResponse>, Status> {
+        self.handle_blocking_query(
+            request,
+            Platform::<DefaultCoreRPC>::query_finalized_epoch_infos,
+            "get_finalized_epoch_infos",
+        )
+        .await
+    }
+
+    async fn get_address_info(
+        &self,
+        request: Request<GetAddressInfoRequest>,
+    ) -> Result<Response<GetAddressInfoResponse>, Status> {
+        self.handle_blocking_query(
+            request,
+            Platform::<DefaultCoreRPC>::query_address_info,
+            "get_address_info",
+        )
+        .await
+    }
+
+    async fn get_addresses_infos(
+        &self,
+        request: Request<GetAddressesInfosRequest>,
+    ) -> Result<Response<GetAddressesInfosResponse>, Status> {
+        self.handle_blocking_query(
+            request,
+            Platform::<DefaultCoreRPC>::query_addresses_infos,
+            "get_addresses_infos",
+        )
+        .await
+    }
+
+    async fn get_addresses_trunk_state(
+        &self,
+        request: Request<GetAddressesTrunkStateRequest>,
+    ) -> Result<Response<GetAddressesTrunkStateResponse>, Status> {
+        self.handle_blocking_query(
+            request,
+            Platform::<DefaultCoreRPC>::query_addresses_trunk_state,
+            "get_addresses_trunk_state",
+        )
+        .await
+    }
+
+    async fn get_addresses_branch_state(
+        &self,
+        request: Request<GetAddressesBranchStateRequest>,
+    ) -> Result<Response<GetAddressesBranchStateResponse>, Status> {
+        self.handle_blocking_query(
+            request,
+            Platform::<DefaultCoreRPC>::query_addresses_branch_state,
+            "get_addresses_branch_state",
+        )
+        .await
+    }
+
+    async fn get_recent_address_balance_changes(
+        &self,
+        request: Request<GetRecentAddressBalanceChangesRequest>,
+    ) -> Result<Response<GetRecentAddressBalanceChangesResponse>, Status> {
+        self.handle_blocking_query(
+            request,
+            Platform::<DefaultCoreRPC>::query_recent_address_balance_changes,
+            "get_recent_address_balance_changes",
+        )
+        .await
+    }
+
+    async fn get_recent_compacted_address_balance_changes(
+        &self,
+        request: Request<GetRecentCompactedAddressBalanceChangesRequest>,
+    ) -> Result<Response<GetRecentCompactedAddressBalanceChangesResponse>, Status> {
+        self.handle_blocking_query(
+            request,
+            Platform::<DefaultCoreRPC>::query_recent_compacted_address_balance_changes,
+            "get_recent_compacted_address_balance_changes",
+        )
+        .await
+    }
+}
+
+#[async_trait]
+impl DriveInternal for QueryService {
+    async fn get_proofs(
+        &self,
+        request: Request<GetProofsRequest>,
+    ) -> Result<Response<GetProofsResponse>, Status> {
+        self.handle_blocking_query(
+            request,
+            Platform::<DefaultCoreRPC>::query_proofs,
+            "get_proofs",
         )
         .await
     }

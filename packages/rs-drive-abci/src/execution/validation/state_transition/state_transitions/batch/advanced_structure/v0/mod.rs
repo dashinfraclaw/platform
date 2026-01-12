@@ -9,7 +9,7 @@ use dpp::identity::PartialIdentity;
 use dpp::state_transition::batch_transition::batched_transition::document_transition::DocumentTransition;
 use dpp::state_transition::batch_transition::document_base_transition::v0::v0_methods::DocumentBaseTransitionV0Methods;
 use dpp::state_transition::batch_transition::BatchTransition;
-use dpp::state_transition::{StateTransitionIdentitySigned, StateTransitionLike};
+use dpp::state_transition::{StateTransitionIdentitySigned, StateTransitionLike, StateTransitionOwned};
 use dpp::state_transition::batch_transition::accessors::DocumentsBatchTransitionAccessorsV0;
 use dpp::state_transition::batch_transition::batched_transition::BatchedTransitionRef;
 use dpp::state_transition::batch_transition::document_base_transition::document_base_transition_trait::DocumentBaseTransitionAccessors;
@@ -62,7 +62,7 @@ impl DocumentsBatchStateTransitionStructureValidationV0 for BatchTransition {
         execution_context: &mut StateTransitionExecutionContext,
         platform_version: &PlatformVersion,
     ) -> Result<ConsensusValidationResult<StateTransitionAction>, Error> {
-        let security_levels = action.contract_based_security_level_requirement()?;
+        let security_levels = action.combined_security_level_requirement()?;
 
         let signing_key = identity.loaded_public_keys.get(&self.signature_public_key_id()).ok_or(Error::Execution(ExecutionError::CorruptedCodeExecution("the key must exist for advanced structure validation as we already fetched it during signature validation")))?;
 

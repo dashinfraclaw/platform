@@ -1,8 +1,8 @@
 use crate::config::{ChainLockConfig, QuorumLikeConfig};
 use crate::platform_types::signature_verification_quorum_set::v0::quorums::Quorums;
 use crate::platform_types::signature_verification_quorum_set::VerificationQuorum;
-use dashcore_rpc::json::QuorumType;
 use dpp::dashcore::QuorumHash;
+use dpp::dashcore_rpc::json::QuorumType;
 use std::vec::IntoIter;
 
 /// Offset for signature verification
@@ -76,7 +76,7 @@ pub trait SignatureVerificationQuorumSetV0Methods {
         &self,
         signing_height: u32,
         verification_height: u32,
-    ) -> SelectedQuorumSetIterator;
+    ) -> SelectedQuorumSetIterator<'_>;
 }
 
 /// Iterator over selected quorum sets and specific quorums based on request_id and quorum configuration
@@ -110,7 +110,7 @@ pub struct QuorumsWithConfig<'q> {
     pub config: &'q QuorumConfig,
 }
 
-impl<'q> QuorumsWithConfig<'q> {
+impl QuorumsWithConfig<'_> {
     /// Choose pseudorandom DIP8 or DIP24 quorum based on quorum config
     /// and request_id
     pub fn choose_quorum(
@@ -121,7 +121,7 @@ impl<'q> QuorumsWithConfig<'q> {
     }
 }
 
-impl<'q> SelectedQuorumSetIterator<'q> {
+impl SelectedQuorumSetIterator<'_> {
     /// Number of quorum sets
     pub fn len(&self) -> usize {
         self.quorum_set.len()
@@ -210,7 +210,7 @@ impl SignatureVerificationQuorumSetV0Methods for SignatureVerificationQuorumSetV
         &self,
         signing_height: u32,
         verification_height: u32,
-    ) -> SelectedQuorumSetIterator {
+    ) -> SelectedQuorumSetIterator<'_> {
         let mut quorums = Vec::new();
         let mut should_be_verifiable = false;
 

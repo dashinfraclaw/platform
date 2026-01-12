@@ -19,13 +19,15 @@ use dpp::data_contract::DataContract;
 use dpp::identifier::Identifier;
 #[cfg(feature = "server")]
 use dpp::serialization::PlatformDeserializable;
+#[cfg(feature = "server")]
+use dpp::voting::contender_structs::ContenderWithSerializedDocumentV0;
 use dpp::voting::contender_structs::{
-    ContenderWithSerializedDocument, ContenderWithSerializedDocumentV0,
-    FinalizedContenderWithSerializedDocument,
+    ContenderWithSerializedDocument, FinalizedContenderWithSerializedDocument,
 };
-use dpp::voting::vote_info_storage::contested_document_vote_poll_stored_info::{
-    ContestedDocumentVotePollStoredInfo, ContestedDocumentVotePollStoredInfoV0Getters,
-};
+#[cfg(feature = "server")]
+use dpp::voting::vote_info_storage::contested_document_vote_poll_stored_info::ContestedDocumentVotePollStoredInfo;
+#[cfg(feature = "server")]
+use dpp::voting::vote_info_storage::contested_document_vote_poll_stored_info::ContestedDocumentVotePollStoredInfoV0Getters;
 use dpp::voting::vote_info_storage::contested_document_vote_poll_winner_info::ContestedDocumentVotePollWinnerInfo;
 use dpp::voting::vote_polls::contested_document_resource_vote_poll::ContestedDocumentResourceVotePoll;
 #[cfg(feature = "server")]
@@ -207,7 +209,7 @@ impl ContestedDocumentVotePollDriveQuery {
         drive: &Drive,
         transaction: TransactionArg,
         platform_version: &PlatformVersion,
-    ) -> Result<ResolvedContestedDocumentVotePollDriveQuery, Error> {
+    ) -> Result<ResolvedContestedDocumentVotePollDriveQuery<'_>, Error> {
         let ContestedDocumentVotePollDriveQuery {
             vote_poll,
             result_type,
@@ -389,7 +391,7 @@ pub struct ResolvedContestedDocumentVotePollDriveQuery<'a> {
     pub allow_include_locked_and_abstaining_vote_tally: bool,
 }
 
-impl<'a> ResolvedContestedDocumentVotePollDriveQuery<'a> {
+impl ResolvedContestedDocumentVotePollDriveQuery<'_> {
     /// Operations to construct a path query.
     pub fn construct_path_query(
         &self,
@@ -533,9 +535,14 @@ impl<'a> ResolvedContestedDocumentVotePollDriveQuery<'a> {
             &platform_version.drive,
         );
         match query_result {
-            Err(Error::GroveDB(GroveError::PathKeyNotFound(_)))
-            | Err(Error::GroveDB(GroveError::PathNotFound(_)))
-            | Err(Error::GroveDB(GroveError::PathParentLayerNotFound(_))) => {
+            Err(Error::GroveDB(e))
+                if matches!(
+                    e.as_ref(),
+                    GroveError::PathKeyNotFound(_)
+                        | GroveError::PathNotFound(_)
+                        | GroveError::PathParentLayerNotFound(_)
+                ) =>
+            {
                 Ok(ContestedDocumentVotePollDriveQueryExecutionResult::default())
             }
             Err(e) => Err(e),
@@ -614,7 +621,7 @@ impl<'a> ResolvedContestedDocumentVotePollDriveQuery<'a> {
                                     }
                                 }
                                 Element::Item(serialized_item_info, _) => {
-                                    if first_key.as_slice() == &RESOURCE_STORED_INFO_KEY_U8_32 {
+                                    if first_key.as_slice() == RESOURCE_STORED_INFO_KEY_U8_32 {
                                         // this is the stored info, let's check to see if the vote is over
                                         let finalized_contested_document_vote_poll_stored_info = ContestedDocumentVotePollStoredInfo::deserialize_from_bytes(&serialized_item_info)?;
                                         if finalized_contested_document_vote_poll_stored_info
@@ -717,7 +724,7 @@ impl<'a> ResolvedContestedDocumentVotePollDriveQuery<'a> {
                                     }
                                 }
                                 Element::Item(serialized_item_info, _) => {
-                                    if first_key.as_slice() == &RESOURCE_STORED_INFO_KEY_U8_32 {
+                                    if first_key.as_slice() == RESOURCE_STORED_INFO_KEY_U8_32 {
                                         // this is the stored info, let's check to see if the vote is over
                                         let finalized_contested_document_vote_poll_stored_info = ContestedDocumentVotePollStoredInfo::deserialize_from_bytes(&serialized_item_info)?;
                                         if finalized_contested_document_vote_poll_stored_info

@@ -1,3 +1,4 @@
+mod address_funds;
 mod contract;
 mod document;
 mod drive_methods;
@@ -16,6 +17,7 @@ use crate::error::Error;
 use crate::fees::op::LowLevelDriveOperation;
 use dpp::block::block_info::BlockInfo;
 
+pub use address_funds::AddressFundsOperationType;
 pub use contract::DataContractOperationType;
 pub use document::DocumentOperation;
 pub use document::DocumentOperationType;
@@ -67,6 +69,7 @@ pub struct DriveOperationContext {
 }
 
 /// All types of Drive Operations
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug)]
 pub enum DriveOperation<'a> {
     /// A contract operation
@@ -85,6 +88,8 @@ pub enum DriveOperation<'a> {
     SystemOperation(SystemOperationType),
     /// A group operation
     GroupOperation(GroupOperationType),
+    /// An address funds operation
+    AddressFundsOperation(AddressFundsOperationType),
     /// A single low level groveDB operation
     GroveDBOperation(QualifiedGroveDbOp),
     /// Multiple low level groveDB operations
@@ -176,6 +181,15 @@ impl DriveLowLevelOperationConverter for DriveOperation<'_> {
                     transaction,
                     platform_version,
                 ),
+            DriveOperation::AddressFundsOperation(address_funds_operation_type) => {
+                address_funds_operation_type.into_low_level_drive_operations(
+                    drive,
+                    estimated_costs_only_with_layer_info,
+                    block_info,
+                    transaction,
+                    platform_version,
+                )
+            }
         }
     }
 }
@@ -500,29 +514,28 @@ mod tests {
         )
         .expect("expected to get document 1");
 
-        let mut operations = vec![];
-
-        operations.push(AddOperation {
-            owned_document_info: OwnedDocumentInfo {
-                document_info: DocumentRefInfo((
-                    &document0,
-                    StorageFlags::optional_default_as_cow(),
-                )),
-                owner_id: Some(random_owner_id),
+        let operations = vec![
+            AddOperation {
+                owned_document_info: OwnedDocumentInfo {
+                    document_info: DocumentRefInfo((
+                        &document0,
+                        StorageFlags::optional_default_as_cow(),
+                    )),
+                    owner_id: Some(random_owner_id),
+                },
+                override_document: false,
             },
-            override_document: false,
-        });
-
-        operations.push(AddOperation {
-            owned_document_info: OwnedDocumentInfo {
-                document_info: DocumentRefInfo((
-                    &document1,
-                    StorageFlags::optional_default_as_cow(),
-                )),
-                owner_id: Some(random_owner_id),
+            AddOperation {
+                owned_document_info: OwnedDocumentInfo {
+                    document_info: DocumentRefInfo((
+                        &document1,
+                        StorageFlags::optional_default_as_cow(),
+                    )),
+                    owner_id: Some(random_owner_id),
+                },
+                override_document: false,
             },
-            override_document: false,
-        });
+        ];
 
         drive_operations.push(DocumentOperation(
             MultipleDocumentOperationsForSameContractDocumentType {
@@ -747,29 +760,28 @@ mod tests {
         )
         .expect("expected to get document");
 
-        let mut operations = vec![];
-
-        operations.push(AddOperation {
-            owned_document_info: OwnedDocumentInfo {
-                document_info: DocumentRefInfo((
-                    &person_document0,
-                    StorageFlags::optional_default_as_cow(),
-                )),
-                owner_id: Some(random_owner_id0),
+        let operations = vec![
+            AddOperation {
+                owned_document_info: OwnedDocumentInfo {
+                    document_info: DocumentRefInfo((
+                        &person_document0,
+                        StorageFlags::optional_default_as_cow(),
+                    )),
+                    owner_id: Some(random_owner_id0),
+                },
+                override_document: false,
             },
-            override_document: false,
-        });
-
-        operations.push(AddOperation {
-            owned_document_info: OwnedDocumentInfo {
-                document_info: DocumentRefInfo((
-                    &person_document1,
-                    StorageFlags::optional_default_as_cow(),
-                )),
-                owner_id: Some(random_owner_id1),
+            AddOperation {
+                owned_document_info: OwnedDocumentInfo {
+                    document_info: DocumentRefInfo((
+                        &person_document1,
+                        StorageFlags::optional_default_as_cow(),
+                    )),
+                    owner_id: Some(random_owner_id1),
+                },
+                override_document: false,
             },
-            override_document: false,
-        });
+        ];
 
         drive_operations.push(DocumentOperation(
             MultipleDocumentOperationsForSameContractDocumentType {
@@ -816,21 +828,20 @@ mod tests {
         )
         .expect("expected to get document");
 
-        let mut operations = vec![];
-
-        operations.push(UpdateOperation(UpdateOperationInfo {
-            document: &person_document0,
-            serialized_document: None,
-            owner_id: Some(random_owner_id0),
-            storage_flags: None,
-        }));
-
-        operations.push(UpdateOperation(UpdateOperationInfo {
-            document: &person_document1,
-            serialized_document: None,
-            owner_id: Some(random_owner_id1),
-            storage_flags: None,
-        }));
+        let operations = vec![
+            UpdateOperation(UpdateOperationInfo {
+                document: &person_document0,
+                serialized_document: None,
+                owner_id: Some(random_owner_id0),
+                storage_flags: None,
+            }),
+            UpdateOperation(UpdateOperationInfo {
+                document: &person_document1,
+                serialized_document: None,
+                owner_id: Some(random_owner_id1),
+                storage_flags: None,
+            }),
+        ];
 
         drive_operations.push(DocumentOperation(
             MultipleDocumentOperationsForSameContractDocumentType {

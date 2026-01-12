@@ -1,12 +1,12 @@
 use crate::error::Error;
 use crate::platform_types::platform::Platform;
-use crate::platform_types::platform_state::v0::PlatformStateV0Methods;
 use crate::platform_types::platform_state::PlatformState;
+use crate::platform_types::platform_state::PlatformStateV0Methods;
 use crate::rpc::core::CoreRPCLike;
-use dashcore_rpc::dashcore_rpc_json::MasternodeType;
 use dpp::block::block_info::BlockInfo;
 use dpp::dashcore::hashes::Hash;
 use dpp::dashcore::ProTxHash;
+use dpp::dashcore_rpc::dashcore_rpc_json::MasternodeType;
 use dpp::identifier::Identifier;
 use dpp::version::PlatformVersion;
 use dpp::voting::contender_structs::FinalizedResourceVoteChoicesWithVoterInfo;
@@ -23,6 +23,7 @@ where
 {
     /// Keeps a record of the vote poll after it has finished
     #[inline(always)]
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn keep_record_of_finished_contested_resource_vote_poll_v0(
         &self,
         block_platform_state: &PlatformState,

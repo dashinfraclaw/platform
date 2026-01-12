@@ -43,7 +43,32 @@ pub mod platform {
     #[cfg(any(feature = "server", feature = "client", target_arch = "wasm32"))]
     mod versioning;
     #[cfg(any(feature = "server", feature = "client", target_arch = "wasm32"))]
-    pub use versioning::{VersionedGrpcMessage, VersionedGrpcResponse};
+    pub use versioning::{
+        MerkProofVersionedGrpcResponse, VersionedGrpcMessage, VersionedGrpcResponse,
+    };
+}
+
+#[cfg(all(feature = "drive", feature = "platform"))]
+pub(crate) mod dapi {
+    pub(crate) use crate::platform::*;
+}
+
+#[cfg(feature = "drive")]
+pub mod drive {
+    pub mod v0 {
+        #[cfg(all(feature = "server", not(target_arch = "wasm32")))]
+        include!("drive/server/org.dash.platform.drive.v0.rs");
+
+        #[cfg(all(
+            feature = "client",
+            not(feature = "server"),
+            not(target_arch = "wasm32")
+        ))]
+        include!("drive/client/org.dash.platform.drive.v0.rs");
+    }
+
+    #[cfg(feature = "tenderdash-proto")]
+    pub use tenderdash_proto as proto;
 }
 
 #[cfg(feature = "serde")]
@@ -55,3 +80,5 @@ pub mod mock;
 
 // Re-export tonic to ensure everyone uses the same version
 pub use tonic;
+// Ensure the prost codec crate is linked and available to generated code
+pub use tonic_prost;

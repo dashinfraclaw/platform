@@ -103,6 +103,8 @@ pub struct DriveProtocol {
     pub latest: u32,
     /// Current version used by the node.
     pub current: u32,
+    /// Protocol version scheduled for the next epoch.
+    pub next_epoch: u32,
 }
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(
@@ -241,7 +243,7 @@ impl TryFrom<&GetStatusResponse> for Version {
                 let protocol = v0
                     .version
                     .as_ref()
-                    .and_then(|v| v.protocol.clone())
+                    .and_then(|v| v.protocol)
                     .map(|p| Protocol {
                         tenderdash: p.tenderdash.map(|t| TenderdashProtocol {
                             p2p: t.p2p,
@@ -250,6 +252,7 @@ impl TryFrom<&GetStatusResponse> for Version {
                         drive: p.drive.map(|d| DriveProtocol {
                             latest: d.latest,
                             current: d.current,
+                            next_epoch: d.next_epoch,
                         }),
                     });
 

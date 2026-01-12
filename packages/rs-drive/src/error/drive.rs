@@ -127,7 +127,7 @@ pub enum DriveError {
 
     /// Error
     #[error("corrupted query returned non item error: {0}")]
-    CorruptedQueryReturnedNonItem(&'static str),
+    CorruptedQueryReturnedNonItem(String),
     /// Error
     #[error("corrupted withdrawal not an item error: {0}")]
     CorruptedWithdrawalNotItem(&'static str),
@@ -193,4 +193,24 @@ pub enum DriveError {
     /// Data Contract not found
     #[error("data contract does not have a start moment: {0}")]
     ContractDoesNotHaveAStartMoment(Identifier),
+
+    /// Invalid action
+    #[error("invalid action: {0}")]
+    InvalidAction(&'static str),
+
+    /// Element was not found
+    #[error("element not found: {0}")]
+    ElementNotFound(&'static str),
+
+    /// Invalid input provided
+    #[error("invalid input: {0}")]
+    InvalidInput(String),
+
+    /// No checkpoints available
+    #[error("no checkpoints available")]
+    NoCheckpointsAvailable,
+
+    /// Checkpoint not found for specified block height
+    #[error("checkpoint not found for block height: {0}")]
+    CheckpointNotFound(u64),
 }

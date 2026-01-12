@@ -1,7 +1,7 @@
 use crate::abci::app::PlatformApplication;
 use crate::abci::AbciError;
 use crate::error::Error;
-use crate::platform_types::platform_state::v0::PlatformStateV0Methods;
+use crate::platform_types::platform_state::PlatformStateV0Methods;
 use crate::rpc::core::CoreRPCLike;
 use dpp::dashcore::Network;
 use dpp::version::DESIRED_PLATFORM_VERSION;
@@ -60,7 +60,7 @@ where
             // Better to restart the Drive, so we might self-heal the node
             // reloading state form the disk
             panic!(
-                "drive and platform state app hash mismatch: drive_storage_root_hash: {:?}, platform_state_app_hash: {:?}",
+                "drive and platform state app hash mismatch (info): drive_storage_root_hash: {:?}, platform_state_app_hash: {:?}",
                 drive_storage_root_hash, platform_state_app_hash
             );
         }
