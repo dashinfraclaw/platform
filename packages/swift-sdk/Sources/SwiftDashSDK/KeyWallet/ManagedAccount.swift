@@ -50,8 +50,6 @@ public class ManagedAccount {
         return managed_core_account_get_utxo_count(handle)
     }
 
-    // MARK: - Transactions
-
     /// Get all transactions for this account
     /// - Returns: Array of transactions
     public func getTransactions() -> [WalletTransaction] {
